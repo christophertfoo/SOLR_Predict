@@ -1,6 +1,7 @@
 library("multicore")
 library("e1071")
 library("rpart")
+library("nnet")
 
 numCores <- multicore:::detectCores()
 
@@ -337,7 +338,7 @@ convertTreeResult <- function(result) {
   return(returnList)
 }
 
-testTreeModel <- function(model, data, colName, verbose=F) {
+testTreeModelNightDay <- function(model, data, colName, verbose=F) {
   predicted <- convertTreeResult(predict(model, data))
   errors <- 0
   for(i in 1:nrow(data)) {
@@ -348,10 +349,10 @@ testTreeModel <- function(model, data, colName, verbose=F) {
   if(verbose) {
     print(paste("Errors:", errors, "/", nrow(data)))
   }
-  return(errors / nrow(data))
+  return(list(error_rate=(errors / nrow(data))))
 }
 
-testNbModel <- function(model, data, colName, verbose=F) {
+testNbModelNightDay <- function(model, data, colName, verbose=F) {
   predicted <- predict(model, data)
   errors <- 0
   for(i in 1:nrow(data)) {
@@ -362,20 +363,110 @@ testNbModel <- function(model, data, colName, verbose=F) {
   if(verbose) {
     print(paste("Errors:", errors, "/", nrow(data)))
   }
-  return(errors / nrow(data))
+  return(list(error_rate=(errors / nrow(data))))
 }
 
-makeTreeNightDay <- function(data, intervalSize, start) {
+testVectorModelSolr <- function(model, data, colName, verbose=F) {
+  predictedVector <- predict(model, data)
+  errors <- 0
+  errorMargin <- 0
+  actualSum <- 0
+  for(i in 1:nrow(data)) {
+    actual <- data[[colName]][i]
+    predicted <- predictedVector[i]
+    if(!is.na(actual) & !is.na(predicted) & actual != predicted) {
+      errors <- errors + 1
+      errorMargin <- errorMargin + abs(actual - predicted)
+      actualSum <- actualSum + actual
+    }
+  }
+  if(verbose) {
+    print(paste("Errors:", errors, "/", nrow(data)))
+  }
+  return(list(error_rate=(errors / nrow(data)), error_margin=(errorMargin / errors), error_percent=(errorMargin / actualSum)))
+}
+
+testClassModelSolr <- function(model, data, colName, verbose=F) {
+  predictedClasses <- predict(model, data)
+  errors <- 0
+  errorMargin <- 0
+  actualSum <- 0
+  for(i in 1:nrow(data)) {
+    actual <- averageFactor(data[[colName]][i])
+    predicted <- averageFactor(predictedClasses[i])
+    if(is.na(actual) || is.na(predicted)) {
+      print("NA")
+    }
+    if(!is.na(actual) & !is.na(predicted) & actual != predicted) {
+      errors <- errors + 1
+      errorMargin <- errorMargin + abs(actual - predicted)
+      actualSum <- actualSum + actual
+    }
+  }
+  if(verbose) {
+    print(paste("Errors:", errors, "/", nrow(data)))
+  }
+  
+  if(errors == 0) {
+    resultErrorMargin <- 0
+    resultErrorPercent <- 0
+  }
+  else {
+    resultErrorMargin <- (errorMargin / errors)
+    resultErrorPercent <- (errorMargin / actualSum)
+  }
+  
+  return(list(error_rate=(errors / nrow(data)), error_margin= resultErrorMargin, error_percent=resultErrorPercent))
+}
+
+makeTreeNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
   training <- data[data$MON %in% start:(start + intervalSize - 1),]
-  return(rpart(formula=ND ~ TIME + MON, data=training))
+  return(rpart(formula=as.formula(modelFormula), data=training))
 }
 
-makeNbNightDay <- function(data, intervalSize, start) {
+makeNbNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
   training <- data[data$MON %in% start:(start + intervalSize - 1),]
-  return(naiveBayes(formula=ND ~ TIME + MON, data=training))
+  return(naiveBayes(formula=as.formula(modelFormula), data=training))
 }
 
-tenFold <- function(data, makeModelFun, intervalSize, start, testFun, colName, verbose=F) {
+makeLmSolr <- function(data, intervalSize, start, modelFormula) {
+  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
+  return(lm(formula=as.formula(modelFormula), data=training))
+}
+
+makeTreeSolr <- function(data, intervalSize, start, modelFormula) {
+  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
+  return(rpart(formula=as.formula(modelFormula), data=training, method="anova"))
+}
+
+makeNbSolr <- function(data, intervalSize, start, modelFormula) {
+  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
+  return(naiveBayes(formula=as.formula(modelFormula), data=training))
+}
+
+makeAnnSolr <- function(data, intervalSize, start, modelFormula) {
+  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
+  return(nnet(formula=as.formula(modelFormula), data=training, size=10))
+}
+
+makeRandomForestSolr <- function(data, intervalSize, start, modelFormula) {
+  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
+  return(randomForest(formula=as.formula(modelFormula), data=training, na.action=na.omit))
+}
+
+averageTestResults <- function(results, column) {
+  total <- 0
+  numResults <- length(results)
+  for(i in 1:numResults) {
+    total <- total + results[[i]][[column]][1]
+  }
+  return(total / numResults)
+}
+
+tenFold <- function(data, makeModelFun, intervalSize, start, testFun, colName, modelFormula, verbose=F) {
+  if(nrow(data) < 10) {
+    return(NULL)
+  }
   folds <- split(data, sample(rep(1:10, nrow(data)/10)))
   overallError <- numeric(0)
   for(i in 1:10) {
@@ -391,51 +482,136 @@ tenFold <- function(data, makeModelFun, intervalSize, start, testFun, colName, v
       }
     }
     
-    model <- makeModelFun(training, intervalSize, start)
+    model <- makeModelFun(training, intervalSize, start, modelFormula)
     error <- testFun(model, test, colName, verbose)
-    overallError <- c(overallError, error)
+    overallError <- c(overallError, list(error))
+    
     if(verbose) {
-      print(paste("Fold", i, ":", (error * 100),"% Error Rate"))
+      print("-----------------------------------------------------------------")
+      print(paste("Fold", i, ":", (error[["error_rate"]] * 100),"% Error Rate"))
     }
   }
   if(verbose) {
-    print(paste("Average Error Rate:", (mean(overallError) * 100), "%"))
+    print(paste("Average Error Rate:", (averageTestResults(overallError, "error_rate") * 100), "%"))
   }
   return(overallError)
 }
 
 testNightDay <- function(data, intervalSize, verbose=F) {
-  nbResults <- numeric(0)
+  nbResults <- vector()
   if(verbose) {
     print("Naive Bayes:")
   }
   for(i in 1:ceiling(12 / intervalSize)) {
     start <- 1 + ((i - 1) * intervalSize)
     end <- start + intervalSize - 1
-    nbResults <- c(nbResults, tenFold(subset(data, MON %in% start:end), makeNbNightDay, intervalSize, start, testNbModel, "ND", verbose))
+    nbResults <- c(nbResults, tenFold(subset(data, MON %in% start:end), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", verbose))
   }
   
-  dtResults <- numeric(0)
+  dtResults <- vector()
   if(verbose) {
     print("Decision Tree:")
   }
   for(i in 1:ceiling(12 / intervalSize)) {
     start <- 1 + ((i - 1) * intervalSize)
     end <- start + intervalSize - 1
-    dtResults <- c(dtResults, tenFold(subset(data, MON %in% start:end), makeTreeNightDay, intervalSize, start, testTreeModel, "ND", verbose))
+    dtResults <- c(dtResults, tenFold(subset(data, MON %in% start:end), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", verbose))
   }
   if(verbose) {
     print("-----------------------------------------------------------------------------------------------------------------")
   }
-  print(paste("Average Error Rate for Naive Bayes:", (mean(nbResults) * 100), "%"))
-  print(paste("Average Error Rate for Decision Tree:", (mean(dtResults) * 100), "%"))
+  print(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResults, "error_rate") * 100), "%"))
+  print(paste("Average Error Rate for Decision Tree:", (averageTestResults(dtResults, "error_rate") * 100), "%"))
 }
 
 testNightDayThreshold <- function(data, intervalSize, solrColName, maxThreshold, verbose=F) {
   for(i in 1:maxThreshold) {
     print(paste("Threshold", i, ":"))
     testData <- convertNightDay(data, solrColName, i)
-    testNightDay(testData, intervalSize)
+    testNightDay(testData, intervalSize, verbose)
+  }
+}
+
+testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbose=F, checkRandomForest=F) {
+  testData <- data[!is.na(data[[colName]]) & data[[colName]] > 1,]
+  testData["SOLR_D"] <- cut(testData[[colName]], numCuts)
+  numIntervals <- ceiling(1440 / intervalSize)
+  classModelFunction <- paste("SOLR_D ~", strsplit(modelFunction, "~")[[1]][2], sep="")
+  
+  #   lmResults <- vector()
+  #   if(verbose) {
+  #     print("Linear Regression:")
+  #   }
+  #   for(i in 1:numIntervals) {
+  #     start <- 1 + ((i - 1) * intervalSize)
+  #     end <- start + intervalSize - 1
+  #     
+  #     lmResults <- c(lmResults, tenFold(subset(testData, TIME %in% start:end), makeLmSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, verbose))
+  #   }
+  #   
+  #   dtResults <- vector()
+  #   if(verbose) {
+  #     print("Decision Tree:")
+  #   }
+  #   for(i in 1:numIntervals) {
+  #     start <- 1 + ((i - 1) * intervalSize)
+  #     end <- start + intervalSize - 1
+  #     
+  #     dtResults <- c(dtResults, tenFold(subset(testData, TIME %in% start:end), makeTreeSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, verbose))
+  #   }
+  
+  
+  
+#   nbResults <- vector()
+#   if(verbose) {
+#     print("Naive Bayes:")
+#   }
+#   for(i in 1:numIntervals) {
+#     start <- 1 + ((i - 1) * intervalSize)
+#     end <- start + intervalSize - 1
+#     
+#     nbResults <- c(nbResults, tenFold(subset(testData, TIME %in% start:end), makeNbSolr, intervalSize, start, testClassModelSolr, "SOLR_D", classModelFunction, verbose))
+#   }
+  
+  annResults <- vector()
+  if(verbose) {
+    print("ANN:")
+  }
+  for(i in 1:numIntervals) {
+    start <- 1 + ((i - 1) * intervalSize)
+    end <- start + intervalSize - 1
+    
+    annResults <- c(annResults, tenFold(subset(testData, TIME %in% start:end), makeAnnSolr, intervalSize, start, testClassModelSolr, "SOLR_D", classModelFunction, verbose))
+  }
+  
+  if(checkRandomForest) {
+    rfResults <- vector()
+    if(verbose) {
+      print("Random Forest:")
+    }
+    for(i in 1:numIntervals) {
+      start <- 1 + ((i - 1) * intervalSize)
+      end <- start + intervalSize - 1
+      
+      rfResults <- c(rfResults, tenFold(subset(testData, TIME %in% start:end), makeRandomForestSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, verbose))
+    }
+  }
+  #   print(paste("Average Error Rate for Linear Regression:", (averageTestResults(lmResults, "error_rate") * 100), "%"))
+  #   print(paste("Average Error Margin for Linear Regression:", (averageTestResults(lmResults, "error_margin"))))
+  #   print(paste("Average Error Percentage for Linear Regression:", (averageTestResults(lmResults, "error_percent")), "%"))
+  #   print(paste("Average Error Rate for Decision Tree:", (averageTestResults(dtResults, "error_rate") * 100), "%"))
+  #   print(paste("Average Error Margin for Decision Tree:", (averageTestResults(dtResults, "error_margin"))))
+  #   print(paste("Average Error Percentage for Decision Tree:", (averageTestResults(dtResults, "error_percent")), "%"))
+#   print(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResults, "error_rate") * 100), "%"))
+#   print(paste("Average Error Margin for Naive Bayes:", (averageTestResults(nbResults, "error_margin"))))
+#   print(paste("Average Error Percentage for Naive Bayes:", (averageTestResults(nbResults, "error_percent")), "%"))
+    print(paste("Average Error Rate for ANN:", (averageTestResults(annResults, "error_rate") * 100), "%"))
+    print(paste("Average Error Margin for ANN:", (averageTestResults(annResults, "error_margin"))))
+    print(paste("Average Error Percentage for ANN:", (averageTestResults(annResults, "error_percent")), "%"))
+  if(checkRandomForest) {
+    print(paste("Average Error Rate for Random Forest:", (averageTestResults(rfResults, "error_rate") * 100), "%"))
+    print(paste("Average Error Margin for Random Forest:", (averageTestResults(rfResults, "error_margin"))))
+    print(paste("Average Error Percentage for Random Forest:", (averageTestResults(rfResults, "error_percent")), "%"))
   }
 }
 
