@@ -484,17 +484,32 @@ testClassModelSolrHelper <- function(model, predictedClasses, data, colName, ver
 }
 
 makeTreeNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
-  training <- data[data$MON %in% start:(start + intervalSize - 1),]
+  if(intervalSize == 0) {
+  training <- data
+  }
+  else {
+    training <- data[data$MON %in% start:(start + intervalSize - 1),]
+  }
   return(rpart(formula=as.formula(modelFormula), data=training, na.action=na.omit))
 }
 
 makeNbNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
-  training <- data[data$MON %in% start:(start + intervalSize - 1),]
+  if(intervalSize == 0) {
+  training <- data
+  }
+  else {
+    training <- data[data$MON %in% start:(start + intervalSize - 1),]
+  }
   return(naiveBayes(formula=as.formula(modelFormula), data=training, na.action=na.omit))
 }
 
 makeAnnNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
+  if(intervalSize == 0) {
+    training <- data
+  }
+  else {
   training <- data[data$MON %in% start:(start + intervalSize - 1),]
+  }
   return(nnet(formula=as.formula(modelFormula), data=training, na.action=na.omit, size=1, trace=FALSE))
 }
 
@@ -652,7 +667,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
     writeLines(paste("Interval Spring:"))
     writeLines("-----------------------------------------------------------------------------------------------------------------")
   }
-  intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
+  intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeNbNightDay, 0, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
   nbResults <- c(nbResults, intervalResult)
   bestResult <- intervalResult
   
@@ -662,7 +677,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
     writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
   }
   
-  intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
+  intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeTreeNightDay, 0, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
   dtResults <- c(dtResults, intervalResult)
   
   if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
@@ -678,7 +693,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
   }
   
   if(checkAnn) {
-    intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
+    intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeAnnNightDay, 0, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
     annResults <- c(annResults, intervalResult)
     
     if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
@@ -700,7 +715,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
     writeLines(paste("Interval Summer:"))
     writeLines("-----------------------------------------------------------------------------------------------------------------")
   }
-  intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
+  intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeNbNightDay, 0, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
   nbResults <- c(nbResults, intervalResult)
   bestResult <- intervalResult
   
@@ -710,7 +725,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
     writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
   }
   
-  intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
+  intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeTreeNightDay, 0, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
   dtResults <- c(dtResults, intervalResult)
   
   if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
@@ -726,7 +741,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
   }
   
   if(checkAnn) {
-    intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
+    intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeAnnNightDay, 0, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
     annResults <- c(annResults, intervalResult)
     
     if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
@@ -748,7 +763,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
     writeLines(paste("Interval Fall:"))
     writeLines("-----------------------------------------------------------------------------------------------------------------")
   }
-  intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
+  intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeNbNightDay, 0, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
   nbResults <- c(nbResults, intervalResult)
   bestResult <- intervalResult
   
@@ -758,7 +773,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
     writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
   }
   
-  intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
+  intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeTreeNightDay, 0, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
   dtResults <- c(dtResults, intervalResult)
   
   if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
@@ -774,7 +789,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
   }
   
   if(checkAnn) {
-    intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
+    intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeAnnNightDay, 0, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
     annResults <- c(annResults, intervalResult)
     
     if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
@@ -796,7 +811,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
     writeLines(paste("Interval Winter:"))
     writeLines("-----------------------------------------------------------------------------------------------------------------")
   }
-  intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
+  intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeNbNightDay, 0, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
   nbResults <- c(nbResults, intervalResult)
   bestResult <- intervalResult
   
@@ -806,7 +821,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
     writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
   }
   
-  intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
+  intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeTreeNightDay, 0, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
   dtResults <- c(dtResults, intervalResult)
   
   if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
@@ -822,7 +837,7 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
   }
   
   if(checkAnn) {
-    intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
+    intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeAnnNightDay, 0, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
     annResults <- c(annResults, intervalResult)
     
     if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
@@ -922,7 +937,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeTreeSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
     dtResults <- c(dtResults, intervalResult)
     
-    if(averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+    if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
       bestResult <- intervalResult
     }
     
@@ -937,7 +952,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeNbSolr, intervalSize, start, testClassModelSolr, "SOLR_D", classModelFunction, F)
     nbResults <- c(nbResults, intervalResult)
     
-    if(averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+    if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
       bestResult <- intervalResult
     }
     
@@ -952,7 +967,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
       intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeAnnSolr, intervalSize, start, testAnnModelSolr, "SOLR_D", classModelFunction, F)
       annResults <- c(annResults, intervalResult)
       
-      if(averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+      if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
         bestResult <- intervalResult
       }
       
@@ -968,7 +983,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
       intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeRandomForestSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
       rfResults <- c(rfResults, intervalResult)
       
-      if(averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+      if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
         bestResult <- intervalResult
       }
       
@@ -1016,6 +1031,11 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     writeLines(paste("Average Error Std Dev for Random Forest:", (averageTestResults(rfResults, "error_sd"))))
     writeLines(paste("Average Error Percentage for Random Forest:", (averageTestResults(rfResults, "error_percent") * 100), "%"))
   }
+  writeLines("")
+  writeLines(paste("Average Error Rate for Best:", (averageTestResults(bestResults, "error_rate") * 100), "%"))
+  writeLines(paste("Average Error Margin for Best:", (averageTestResults(bestResults, "error_margin"))))
+  writeLines(paste("Average Error Std Dev for Best:", (averageTestResults(bestResults, "error_sd"))))
+  writeLines(paste("Average Error Percentage for Best:", (averageTestResults(bestResults, "error_percent") * 100), "%"))
 }
 
 testSolrCuts <- function(data, colName, modelFunction, checkAnn=F) {
