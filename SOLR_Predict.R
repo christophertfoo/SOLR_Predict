@@ -2,6 +2,7 @@ library("multicore")
 library("e1071")
 library("rpart")
 library("nnet")
+library('randomForest')
 
 numCores <- multicore:::detectCores()
 
@@ -514,7 +515,7 @@ makeNbSolr <- function(data, intervalSize, start, modelFormula) {
 
 makeAnnSolr <- function(data, intervalSize, start, modelFormula) {
   training <- data[data$TIME %in% start:(start + intervalSize - 1),]
-  return(nnet(formula=as.formula(modelFormula), data=training, size=1, na.action=na.omit, trace=FALSE))
+  return(nnet(formula=as.formula(modelFormula), data=training, size=1, na.action=na.omit, trace=FALSE, MaxNWts=5000))
 }
 
 makeRandomForestSolr <- function(data, intervalSize, start, modelFormula) {
@@ -569,6 +570,7 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
   nbResults <- vector()
   dtResults <- vector()
   annResults <- vector()
+  bestResults <- vector()
   
   for(i in 1:ceiling(12 / intervalSize)) {
     start <- 1 + ((i - 1) * intervalSize)
@@ -579,6 +581,7 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
     }
     intervalResult <- tenFold(subset(data, MON %in% start:end), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
     nbResults <- c(nbResults, intervalResult)
+    bestResult <- intervalResult
     
     if(verbose) {
       writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
@@ -588,6 +591,10 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
     
     intervalResult <- tenFold(subset(data, MON %in% start:end), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
     dtResults <- c(dtResults, intervalResult)
+    
+    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+      bestResult <- intervalResult
+    }
     
     if(verbose) {
       writeLines("")
@@ -601,6 +608,10 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
       intervalResult <- tenFold(subset(data, MON %in% start:end), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
       annResults <- c(annResults, intervalResult)
       
+      if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+        bestResult <- intervalResult
+      }
+      
       if(verbose) {
         writeLines("")
         writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
@@ -609,6 +620,8 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
         writeLines("-----------------------------------------------------------------------------------------------------------------")
       }
     }
+    
+    bestResults <- c(bestResults, bestResult)
   }
   writeLines(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResults, "error_rate") * 100), "%"))
   writeLines(paste("Average False Positive % for Naive Bayes:", (averageTestResults(nbResults, "false_positive") * 100), "%"))
@@ -623,6 +636,228 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
     writeLines(paste("Average False Positive % for ANN:", (averageTestResults(annResults, "false_positive") * 100), "%"))
     writeLines(paste("Average False Negative % for ANN:", (averageTestResults(annResults, "false_negative") * 100), "%"))
   }
+  writeLines("")
+  writeLines(paste("Average Error Rate for Best:", (averageTestResults(bestResults, "error_rate") * 100), "%"))
+  writeLines(paste("Average False Positive % for Best:", (averageTestResults(bestResults, "false_positive") * 100), "%"))
+  writeLines(paste("Average False Negative % for Best:", (averageTestResults(bestResults, "false_negative") * 100), "%"))
+}
+
+testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
+  nbResults <- vector()
+  dtResults <- vector()
+  annResults <- vector()
+  bestResults <- vector()
+  
+  if(verbose) {
+    writeLines(paste("Interval Spring:"))
+    writeLines("-----------------------------------------------------------------------------------------------------------------")
+  }
+  intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
+  nbResults <- c(nbResults, intervalResult)
+  bestResult <- intervalResult
+  
+  if(verbose) {
+    writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+    writeLines(paste("Interval False Positive % for Naive Bayes:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+    writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+  }
+  
+  intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
+  dtResults <- c(dtResults, intervalResult)
+  
+  if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+    bestResult <- intervalResult
+  }
+  
+  if(verbose) {
+    writeLines("")
+    writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+    writeLines(paste("Interval False Positive % for Decision Tree:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+    writeLines(paste("Interval False Negative % for Decision Tree:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+    writeLines("-----------------------------------------------------------------------------------------------------------------")
+  }
+  
+  if(checkAnn) {
+    intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
+    annResults <- c(annResults, intervalResult)
+    
+    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+      bestResult <- intervalResult
+    }
+    
+    if(verbose) {
+      writeLines("")
+      writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+      writeLines(paste("Interval False Positive % for ANN:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+      writeLines(paste("Interval False Negative % for ANN:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+      writeLines("-----------------------------------------------------------------------------------------------------------------")
+    }
+  }
+  
+  bestResults <- c(bestResults, bestResult)
+  
+  if(verbose) {
+    writeLines(paste("Interval Summer:"))
+    writeLines("-----------------------------------------------------------------------------------------------------------------")
+  }
+  intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
+  nbResults <- c(nbResults, intervalResult)
+  bestResult <- intervalResult
+  
+  if(verbose) {
+    writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+    writeLines(paste("Interval False Positive % for Naive Bayes:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+    writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+  }
+  
+  intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
+  dtResults <- c(dtResults, intervalResult)
+  
+  if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+    bestResult <- intervalResult
+  }
+  
+  if(verbose) {
+    writeLines("")
+    writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+    writeLines(paste("Interval False Positive % for Decision Tree:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+    writeLines(paste("Interval False Negative % for Decision Tree:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+    writeLines("-----------------------------------------------------------------------------------------------------------------")
+  }
+  
+  if(checkAnn) {
+    intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
+    annResults <- c(annResults, intervalResult)
+    
+    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+      bestResult <- intervalResult
+    }
+    
+    if(verbose) {
+      writeLines("")
+      writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+      writeLines(paste("Interval False Positive % for ANN:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+      writeLines(paste("Interval False Negative % for ANN:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+      writeLines("-----------------------------------------------------------------------------------------------------------------")
+    }
+  }
+  
+  bestResults <- c(bestResults, bestResult)
+  
+  if(verbose) {
+    writeLines(paste("Interval Fall:"))
+    writeLines("-----------------------------------------------------------------------------------------------------------------")
+  }
+  intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
+  nbResults <- c(nbResults, intervalResult)
+  bestResult <- intervalResult
+  
+  if(verbose) {
+    writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+    writeLines(paste("Interval False Positive % for Naive Bayes:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+    writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+  }
+  
+  intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
+  dtResults <- c(dtResults, intervalResult)
+  
+  if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+    bestResult <- intervalResult
+  }
+  
+  if(verbose) {
+    writeLines("")
+    writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+    writeLines(paste("Interval False Positive % for Decision Tree:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+    writeLines(paste("Interval False Negative % for Decision Tree:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+    writeLines("-----------------------------------------------------------------------------------------------------------------")
+  }
+  
+  if(checkAnn) {
+    intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
+    annResults <- c(annResults, intervalResult)
+    
+    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+      bestResult <- intervalResult
+    }
+    
+    if(verbose) {
+      writeLines("")
+      writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+      writeLines(paste("Interval False Positive % for ANN:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+      writeLines(paste("Interval False Negative % for ANN:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+      writeLines("-----------------------------------------------------------------------------------------------------------------")
+    }
+  }
+  
+  bestResults <- c(bestResults, bestResult)
+  
+  if(verbose) {
+    writeLines(paste("Interval Winter:"))
+    writeLines("-----------------------------------------------------------------------------------------------------------------")
+  }
+  intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
+  nbResults <- c(nbResults, intervalResult)
+  bestResult <- intervalResult
+  
+  if(verbose) {
+    writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+    writeLines(paste("Interval False Positive % for Naive Bayes:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+    writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+  }
+  
+  intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
+  dtResults <- c(dtResults, intervalResult)
+  
+  if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+    bestResult <- intervalResult
+  }
+  
+  if(verbose) {
+    writeLines("")
+    writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+    writeLines(paste("Interval False Positive % for Decision Tree:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+    writeLines(paste("Interval False Negative % for Decision Tree:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+    writeLines("-----------------------------------------------------------------------------------------------------------------")
+  }
+  
+  if(checkAnn) {
+    intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
+    annResults <- c(annResults, intervalResult)
+    
+    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
+      bestResult <- intervalResult
+    }
+    
+    if(verbose) {
+      writeLines("")
+      writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+      writeLines(paste("Interval False Positive % for ANN:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
+      writeLines(paste("Interval False Negative % for ANN:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
+      writeLines("-----------------------------------------------------------------------------------------------------------------")
+    }
+  }
+  
+  bestResults <- c(bestResults, bestResult)
+  
+  writeLines(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResults, "error_rate") * 100), "%"))
+  writeLines(paste("Average False Positive % for Naive Bayes:", (averageTestResults(nbResults, "false_positive") * 100), "%"))
+  writeLines(paste("Average False Negative % for Naive Bayes:", (averageTestResults(nbResults, "false_negative") * 100), "%"))
+  writeLines("")
+  writeLines(paste("Average Error Rate for Decision Tree:", (averageTestResults(dtResults, "error_rate") * 100), "%"))
+  writeLines(paste("Average False Positive % for Decision Tree:", (averageTestResults(dtResults, "false_positive") * 100), "%"))
+  writeLines(paste("Average False Negative % for Decision Tree:", (averageTestResults(dtResults, "false_negative") * 100), "%"))
+  if(checkAnn) {
+    writeLines("")
+    writeLines(paste("Average Error Rate for ANN:", (averageTestResults(annResults, "error_rate") * 100), "%"))
+    writeLines(paste("Average False Positive % for ANN:", (averageTestResults(annResults, "false_positive") * 100), "%"))
+    writeLines(paste("Average False Negative % for ANN:", (averageTestResults(annResults, "false_negative") * 100), "%"))
+  }
+  
+  writeLines("")
+  writeLines(paste("Average Error Rate for Best:", (averageTestResults(bestResults, "error_rate") * 100), "%"))
+  writeLines(paste("Average False Positive % for Best:", (averageTestResults(bestResults, "false_positive") * 100), "%"))
+  writeLines(paste("Average False Negative % for Best:", (averageTestResults(bestResults, "false_negative") * 100), "%"))
 }
 
 testNightDayThreshold <- function(data, solrColName, maxThreshold, verbose=F, checkAnn=F) {
@@ -645,6 +880,10 @@ testNightDayIntervals <- function(data, solrColName, verbose=F, checkAnn=F) {
     testNightDay(data=testData, intervalSize=intervals[i], verbose=verbose, checkAnn=checkAnn)
     writeLines("-----------------------------------------------------------------------------------------------------------------")
   }
+  writeLines("Interval Season:")
+  writeLines("-----------------------------------------------------------------------------------------------------------------")
+  testNightDaySeason(data=testData, checkAnn=checkAnn, verbose=verbose)
+  writeLines("-----------------------------------------------------------------------------------------------------------------")
 }
 
 testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbose=F, checkRandomForest=F, checkAnn=F) {
@@ -658,6 +897,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
   nbResults <- vector()
   annResults <- vector()
   rfResults <- vector()
+  bestResults <- vector()
   
   for(i in 1:numIntervals) {
     start <- 1 + ((i - 1) * intervalSize)
@@ -669,6 +909,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeLmSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
     lmResults <- c(lmResults, intervalResult)
+    bestResult <- intervalResult
     
     if(verbose) {
       writeLines(paste("Interval Error Rate for Linear Regression:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
@@ -681,6 +922,10 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeTreeSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
     dtResults <- c(dtResults, intervalResult)
     
+    if(averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+      bestResult <- intervalResult
+    }
+    
     if(verbose) {
       writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
       writeLines(paste("Interval Error Margin for Decision Tree:", (averageTestResults(intervalResult, "error_margin"))))
@@ -692,6 +937,10 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeNbSolr, intervalSize, start, testClassModelSolr, "SOLR_D", classModelFunction, F)
     nbResults <- c(nbResults, intervalResult)
     
+    if(averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+      bestResult <- intervalResult
+    }
+    
     if(verbose) {
       writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
       writeLines(paste("Interval Error Margin for Naive Bayes:", (averageTestResults(intervalResult, "error_margin"))))
@@ -702,6 +951,11 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     if(checkAnn) {
       intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeAnnSolr, intervalSize, start, testAnnModelSolr, "SOLR_D", classModelFunction, F)
       annResults <- c(annResults, intervalResult)
+      
+      if(averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+        bestResult <- intervalResult
+      }
+      
       if(verbose) {
         writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
         writeLines(paste("Interval Error Margin for ANN:", (averageTestResults(intervalResult, "error_margin"))))
@@ -713,7 +967,21 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     if(checkRandomForest) {
       intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeRandomForestSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
       rfResults <- c(rfResults, intervalResult)
+      
+      if(averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+        bestResult <- intervalResult
+      }
+      
+      if(verbose) {
+        writeLines(paste("Interval Error Rate for Random Forest:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
+        writeLines(paste("Interval Error Margin for Random Forest:", (averageTestResults(intervalResult, "error_margin"))))
+        writeLines(paste("Interval Error Std Dev for Random Forest:", (averageTestResults(intervalResult, "error_sd"))))
+        writeLines(paste("Interval Error Percentage for Random Forest:", (averageTestResults(intervalResult, "error_percent") * 100), "%"))
+      }
     }
+    
+    bestResults <- c(bestResults, bestResult)
+    
     if(verbose) {
       writeLines("--------------------------------------------------------------------")
     }
@@ -825,4 +1093,21 @@ averageFactor <- function(factor) {
   start <- unlist(splitFactor[[1]])[1]
   end <- unlist(splitFactor[[1]])[2]
   return((as.numeric(start) + as.numeric(end)) / 2)
+}
+
+makeFullModelFunction <- function(data, colName, ignoreList=vector()) {
+  functionString <- paste(colName, "~")
+  first <- T
+  for(i in names(data)) {
+    if(i != colName & i != "DT" & !(i %in% ignoreList)) {
+      if(first) {
+        functionString <- paste(functionString, i)
+        first <- F
+      }
+      else {
+        functionString <- paste(functionString, "+", i)
+      }
+    }
+  }
+  return(functionString)
 }
