@@ -937,7 +937,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeTreeSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
     dtResults <- c(dtResults, intervalResult)
     
-    if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+    if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
       bestResult <- intervalResult
     }
     
@@ -951,8 +951,15 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeNbSolr, intervalSize, start, testClassModelSolr, "SOLR_D", classModelFunction, F)
     nbResults <- c(nbResults, intervalResult)
-    
-    if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+
+    if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
+      if(is.null(bestResult)) {
+        writeLines("NULL")
+      }
+      else {
+        writeLines(paste("Old =", averageTestResults(results=bestResult, column="error_margin")))
+        writeLines(paste("New =", averageTestResults(results=intervalResult, column="error_margin")))
+      }
       bestResult <- intervalResult
     }
     
@@ -967,7 +974,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
       intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeAnnSolr, intervalSize, start, testAnnModelSolr, "SOLR_D", classModelFunction, F)
       annResults <- c(annResults, intervalResult)
       
-      if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+      if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
         bestResult <- intervalResult
       }
       
@@ -983,7 +990,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
       intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeRandomForestSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
       rfResults <- c(rfResults, intervalResult)
       
-      if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") < averageTestResults(results=intervalResult, column="error_margin")) {
+      if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
         bestResult <- intervalResult
       }
       
