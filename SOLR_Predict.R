@@ -553,6 +553,7 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
   dtResults <- vector()
   annResults <- vector()
   bestResults <- vector()
+  bestCombo <- character(0)
   
   for(i in 1:ceiling(12 / intervalSize)) {
     start <- 1 + ((i - 1) * intervalSize)
@@ -564,6 +565,7 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
     intervalResult <- tenFold(subset(data, MON %in% start:end), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
     nbResults <- c(nbResults, intervalResult)
     bestResult <- intervalResult
+    bestModel <- "Naive Bayes"
     
     if(verbose) {
       writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
@@ -576,6 +578,7 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
     
     if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
       bestResult <- intervalResult
+      bestModel <- "Decision Tree"
     }
     
     if(verbose) {
@@ -592,6 +595,7 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
       
       if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
         bestResult <- intervalResult
+        bestModel <- "ANN"
       }
       
       if(verbose) {
@@ -604,6 +608,7 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
     }
     
     bestResults <- c(bestResults, bestResult)
+    bestCombo <- c(bestCombo, bestModel)
   }
   writeLines(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResults, "error_rate") * 100), "%"))
   writeLines(paste("Average False Positive % for Naive Bayes:", (averageTestResults(nbResults, "false_positive") * 100), "%"))
@@ -618,10 +623,14 @@ testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
     writeLines(paste("Average False Positive % for ANN:", (averageTestResults(annResults, "false_positive") * 100), "%"))
     writeLines(paste("Average False Negative % for ANN:", (averageTestResults(annResults, "false_negative") * 100), "%"))
   }
+  bestErrorRate <- (averageTestResults(bestResults, "error_rate") * 100)
   writeLines("")
-  writeLines(paste("Average Error Rate for Best:", (averageTestResults(bestResults, "error_rate") * 100), "%"))
+  writeLines(paste("Average Error Rate for Best:", bestErrorRate, "%"))
   writeLines(paste("Average False Positive % for Best:", (averageTestResults(bestResults, "false_positive") * 100), "%"))
   writeLines(paste("Average False Negative % for Best:", (averageTestResults(bestResults, "false_negative") * 100), "%"))
+  bestComboString = getCombo(bestCombo)
+  writeLines(paste("Best Combo:", bestComboString))
+  return(list(error_rate=bestErrorRate, combo=bestComboString))
 }
 
 testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
@@ -837,35 +846,51 @@ testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
   }
   
   writeLines("")
-  writeLines(paste("Average Error Rate for Best:", (averageTestResults(bestResults, "error_rate") * 100), "%"))
+  bestErrorRate <- averageTestResults(bestResults, "error_rate") * 100
+  writeLines(paste("Average Error Rate for Best:", bestErrorRate, "%"))
   writeLines(paste("Average False Positive % for Best:", (averageTestResults(bestResults, "false_positive") * 100), "%"))
   writeLines(paste("Average False Negative % for Best:", (averageTestResults(bestResults, "false_negative") * 100), "%"))
+  return(bestErrorRate)
 }
 
 testNightDayThreshold <- function(data, solrColName, maxThreshold, verbose=F, checkAnn=F) {
+  bestThreshold <- NULL
   for(i in 1:maxThreshold) {
     writeLines(paste("Threshold", i, ":"))
     writeLines("-----------------------------------------------------------------------------------------------------------------")
     testData <- convertNightDay(data=data, colName=solrColName, threshold=i)
-    testNightDay(data=testData, intervalSize=12, verbose=verbose, checkAnn=checkAnn)
+    result <- testNightDay(data=testData, intervalSize=12, verbose=verbose, checkAnn=checkAnn)
+    if(is.null(bestThreshold) || result$error_rate < bestThreshold$error_rate) {
+      bestThreshold <- list(threshold=i, error_rate=result$error_rate, combo=result$combo)
+    }
     writeLines("-----------------------------------------------------------------------------------------------------------------")
   }
+  writeLines(paste("Best Threshold:", bestThreshold$threshold, "(", bestThreshold$error_rate, "% )"))
+  writeLines(paste("Models:", bestThreshold$combo))
+  return(bestThreshold)
 }
 
 testNightDayIntervals <- function(data, solrColName, verbose=F, checkAnn=F) {
   intervals <- c(12, 6, 4, 3, 2, 1)
   testData <- convertNightDay(data=data, colName=solrColName, threshold=1)
+  bestIntervalSize <- NULL
   for(i in 1:length(intervals)) {
     intervalSize <- intervals[i]
     writeLines(paste("Interval Size", intervalSize, ":"))
     writeLines("-----------------------------------------------------------------------------------------------------------------")
-    testNightDay(data=testData, intervalSize=intervals[i], verbose=verbose, checkAnn=checkAnn)
+    result <- testNightDay(data=testData, intervalSize=intervals[i], verbose=verbose, checkAnn=checkAnn)
+    if(is.null(bestIntervalSize) || result$error_rate < bestIntervalSize$error_rate) {
+      bestIntervalSize <- list(size=intervals[i], error_rate=result$error_rate, combo=result$combo)
+    }
     writeLines("-----------------------------------------------------------------------------------------------------------------")
   }
-  writeLines("Interval Season:")
-  writeLines("-----------------------------------------------------------------------------------------------------------------")
-  testNightDaySeason(data=testData, checkAnn=checkAnn, verbose=verbose)
-  writeLines("-----------------------------------------------------------------------------------------------------------------")
+  writeLines(paste("Best Interval Size:", bestIntervalSize$size, "(", bestIntervalSize$error_rate, "% )"))
+  writeLines(paste("Models:", bestIntervalSize$combo))
+#   writeLines("Interval Season:")
+#   writeLines("-----------------------------------------------------------------------------------------------------------------")
+#   testNightDaySeason(data=testData, checkAnn=checkAnn, verbose=verbose)
+#   writeLines("-----------------------------------------------------------------------------------------------------------------")
+  return(bestIntervalSize)
 }
 
 testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbose=F, checkRandomForest=F, checkAnn=F) {
@@ -880,6 +905,9 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
   annResults <- vector()
   rfResults <- vector()
   bestResults <- vector()
+  bestCombo <- character(0)
+  bestRelResults <- vector()
+  bestRelCombo <- character(0)
   
   for(i in 1:numIntervals) {
     start <- 1 + ((i - 1) * intervalSize)
@@ -891,7 +919,18 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeLmSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
     lmResults <- c(lmResults, intervalResult)
+    if(is.null(intervalResult)) {
+      bestResult <- NULL
+      bestModel <- "NULL"
+      bestRelResult <- NULL
+      bestRelModel <- "NULL"
+    }
+    else {
     bestResult <- intervalResult
+    bestModel <- "Linear Regression"
+    bestRelResult <- intervalResult
+    bestRelModel <- "Linear Regression"
+    }
     
     if(verbose) {
       writeLines(paste("Interval Error Rate for Linear Regression:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
@@ -904,8 +943,14 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeTreeSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
     dtResults <- c(dtResults, intervalResult)
     
-    if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
+    if((is.null(bestResult) & !is.null(intervalResult)) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
       bestResult <- intervalResult
+      bestModel <- "Decision Tree"
+    }
+    
+    if((is.null(bestRelResult) & !is.null(intervalResult)) || averageTestResults(results=bestRelResult, column="error_percent") > averageTestResults(results=intervalResult, column="error_percent")) {
+      bestRelResult <- intervalResult
+      bestRelModel <- "Decision Tree"
     }
     
     if(verbose) {
@@ -919,15 +964,14 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeNbSolr, intervalSize, start, testClassModelSolr, "SOLR_D", classModelFunction, F)
     nbResults <- c(nbResults, intervalResult)
 
-    if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
-      if(is.null(bestResult)) {
-        writeLines("NULL")
-      }
-      else {
-        writeLines(paste("Old =", averageTestResults(results=bestResult, column="error_margin")))
-        writeLines(paste("New =", averageTestResults(results=intervalResult, column="error_margin")))
-      }
+    if((is.null(bestResult) & !is.null(intervalResult)) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
       bestResult <- intervalResult
+      bestModel <- "Naive Bayes"
+    }
+    
+    if((is.null(bestRelResult) & !is.null(intervalResult)) || averageTestResults(results=bestRelResult, column="error_percent") > averageTestResults(results=intervalResult, column="error_percent")) {
+      bestRelResult <- intervalResult
+      bestRelModel <- "Naive Bayes"
     }
     
     if(verbose) {
@@ -941,8 +985,14 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
       intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeAnnSolr, intervalSize, start, testAnnModelSolr, "SOLR_D", classModelFunction, F)
       annResults <- c(annResults, intervalResult)
       
-      if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
+      if((is.null(bestResult) & !is.null(intervalResult)) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
         bestResult <- intervalResult
+        bestModel <- "ANN"
+      }
+      
+      if((is.null(bestRelResult) & !is.null(intervalResult)) || averageTestResults(results=bestRelResult, column="error_percent") > averageTestResults(results=intervalResult, column="error_percent")) {
+        bestRelResult <- intervalResult
+        bestRelModel <- "ANN"
       }
       
       if(verbose) {
@@ -957,8 +1007,14 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
       intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeRandomForestSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
       rfResults <- c(rfResults, intervalResult)
       
-      if(is.null(bestResult) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
+      if((is.null(bestResult) & !is.null(intervalResult)) || averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin")) {
         bestResult <- intervalResult
+        bestModel <- "Random Forest"
+      }
+      
+      if((is.null(bestRelResult) & !is.null(intervalResult)) || averageTestResults(results=bestRelResult, column="error_percent") > averageTestResults(results=intervalResult, column="error_percent")) {
+        bestRelResult <- intervalResult
+        bestRelModel <- "Random Forest"
       }
       
       if(verbose) {
@@ -970,6 +1026,9 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     }
     
     bestResults <- c(bestResults, bestResult)
+    bestRelResults <- c(bestRelResults, bestRelResult)
+    bestCombo <- c(bestCombo, bestModel)
+    bestRelCombo <- c(bestRelCombo, bestRelModel)
     
     if(verbose) {
       writeLines("--------------------------------------------------------------------")
@@ -1007,12 +1066,38 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
   }
   writeLines("")
   writeLines(paste("Average Error Rate for Best:", (averageTestResults(bestResults, "error_rate") * 100), "%"))
-  writeLines(paste("Average Error Margin for Best:", (averageTestResults(bestResults, "error_margin"))))
+  bestErrorMargin <- averageTestResults(bestResults, "error_margin")
+  writeLines(paste("Average Error Margin for Best:", bestErrorMargin))
   writeLines(paste("Average Error Std Dev for Best:", (averageTestResults(bestResults, "error_sd"))))
-  writeLines(paste("Average Error Percentage for Best:", (averageTestResults(bestResults, "error_percent") * 100), "%"))
+  bestErrorPercent <- averageTestResults(bestResults, "error_percent") * 100
+  writeLines(paste("Average Error Percentage for Best:", bestErrorPercent, "%"))
+  bestComboString <- getCombo(bestCombo)
+  writeLines(paste("Best Combo:", bestComboString))
+  writeLines("")
+  writeLines(paste("Average Error Rate for Relative Best:", (averageTestResults(bestRelResults, "error_rate") * 100), "%"))
+  bestRelErrorMargin <- averageTestResults(bestRelResults, "error_margin")
+  writeLines(paste("Average Error Margin for Relative Best:", bestRelErrorMargin))
+  writeLines(paste("Average Error Std Dev for Relative Best:", (averageTestResults(bestRelResults, "error_sd"))))
+  bestRelErrorPercent <- averageTestResults(bestRelResults, "error_percent") * 100
+  writeLines(paste("Average Error Percentage for Relative Best:", bestRelErrorPercent, "%"))
+  bestRelComboString <- getCombo(bestRelCombo)
+  writeLines(paste("Relative Best Combo:", bestRelComboString))
+  
+  return(list(best_margin=list(error_margin=bestErrorMargin, error_percent=bestErrorPercent, combo=bestComboString), best_relative=list(error_margin=bestRelErrorMargin, error_percent=bestRelErrorPercent, combo=bestRelComboString)))
 }
 
-testSolrCuts <- function(data, colName, modelFunction, checkAnn=F) {
+getCombo <- function(comboList) {
+  numCombo <- length(comboList)
+  comboString <- comboList[1]
+  if(numCombo > 1) {
+  for(i in 2:numCombo) {
+    comboString <- paste(comboString, "-", comboList[i])
+  }
+  }
+  return(comboString)
+}
+
+testSolrCuts <- function(data, colName, modelFunction, checkAnn=F, intervalSize=1440) {
   testData <- data[!is.na(data[[colName]]) & data[[colName]] > 1,]
   targetCuts <- c(100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000)
   for(i in 1:length(targetCuts)) {
@@ -1021,13 +1106,13 @@ testSolrCuts <- function(data, colName, modelFunction, checkAnn=F) {
     writeLines("-------------------------------------------------------------------")
     testData["SOLR_D"] <- cut(testData[[colName]], numCuts)
     classModelFunction <- paste("SOLR_D ~", strsplit(modelFunction, "~")[[1]][2], sep="")
-    nbResult <- tenFold(testData, makeNbSolr, 1440, 1, testClassModelSolr, "SOLR_D", classModelFunction, F)
+    nbResult <- tenFold(testData, makeNbSolr, intervalSize, 1, testClassModelSolr, "SOLR_D", classModelFunction, F)
     writeLines(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResult, "error_rate") * 100), "%"))
     writeLines(paste("Average Error Margin for Naive Bayes:", (averageTestResults(nbResult, "error_margin"))))
     writeLines(paste("Average Error Std Dev for Naive Bayes:", (averageTestResults(nbResult, "error_sd"))))
     writeLines(paste("Average Error Percentage for Naive Bayes:", (averageTestResults(nbResult, "error_percent") * 100), "%"))
     if(checkAnn) {
-      annResult <- tenFold(testData, makeAnnSolr, 1440, 1, testAnnModelSolr, "SOLR_D", classModelFunction, F)
+      annResult <- tenFold(testData, makeAnnSolr, intervalSize, 1, testAnnModelSolr, "SOLR_D", classModelFunction, F)
       writeLines("")
       writeLines(paste("Average Error Rate for ANN:", (averageTestResults(annResult, "error_rate") * 100), "%"))
       writeLines(paste("Average Error Margin for ANN:", (averageTestResults(annResult, "error_margin"))))
@@ -1038,15 +1123,35 @@ testSolrCuts <- function(data, colName, modelFunction, checkAnn=F) {
   }
 }
 
-testSolrIntervals <- function(data, colName, modelFunction, checkAnn=F, checkRandomForest=F) {
+testSolrIntervals <- function(data, colName, modelFunction, checkAnn=F, checkRandomForest=F, numCuts=1000) {
   intervals <- c(1440, 720, 480, 360, 240, 180, 120, 60)
+  bestIntervalMargin <- NULL
+  bestIntervalRelative <- NULL
   for(i in 1:length(intervals)) {
     intervalSize <- intervals[i]
     writeLines(paste("Interval Size", intervalSize,":"))
     writeLines("-------------------------------------------------------------------")
-    testSolr(data, intervalSize, colName, modelFunction, 1000, verbose=T, checkAnn=checkAnn, checkRandomForest=checkRandomForest)
+    result = testSolr(data, intervalSize, colName, modelFunction, numCuts, checkAnn=checkAnn, checkRandomForest=checkRandomForest)
+    if(is.null(bestIntervalMargin) || bestIntervalMargin$error_margin > result$best_margin$error_margin) {
+      bestIntervalMargin <- list(interval=intervalSize, error_margin=result$best_margin$error_margin, error_percent=result$best_margin$error_percent, combo=result$best_margin$combo)
+    }
+    if(is.null(bestIntervalRelative) || bestIntervalRelative$error_margin > result$best_relative$error_margin) {
+      bestIntervalRelative <- list(interval=intervalSize, error_margin=result$best_relative$error_margin, error_percent=result$best_relative$error_percent, combo=result$best_relative$combo)
+    }
     writeLines("-------------------------------------------------------------------")
   }
+  writeLines("Best Margin:")
+  writeLines(paste("    Interval:", bestIntervalMargin$interval))
+  writeLines(paste("    Error Margin:", bestIntervalMargin$error_margin))
+  writeLines(paste("    Error Percent:", bestIntervalMargin$error_percent))
+  writeLines(paste("    Models:", bestIntervalMargin$combo))
+  writeLines("")
+  writeLines("Best Relative:")
+  writeLines(paste("    Interval:", bestIntervalRelative$interval))
+  writeLines(paste("    Error Margin:", bestIntervalRelative$error_margin))
+  writeLines(paste("    Error Percent:", bestIntervalRelative$error_percent))
+  writeLines(paste("    Models:", bestIntervalRelative$combo))
+  return(list(best_margin=bestIntervalMargin, best_relative=bestIntervalRelative))
 }
 
 mergeDataFrames <- function(destFrame, sourceFrame, sourceName) {
