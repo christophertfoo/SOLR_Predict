@@ -144,7 +144,12 @@ dataOffset <- function(numrows, col, data) {
   return(data)
 }
 
-runCorrelation <- function(index, xCol, yCol, data, selectedMethod) {
+runCorrelation <- function(index, paramList) {
+  index <- index
+  xCol <- paramList$xCol
+  yCol <- paramList$yCol
+  data <- paramList$data
+  selectedMethod <- paramList$selectedMethod
   correlation <- cor(data[[xCol]], data[[yCol]], use="pairwise.complete.obs", method=selectedMethod)
   return(list(index=index, name=xCol, correlation=correlation))  
 }
@@ -169,7 +174,7 @@ getNumReturned <- function(statusList) {
   return(count)
 }
 
-getResults <- function(statusList) {
+getCorrelationResults <- function(statusList) {
   colNames <- character(0)
   correlations <- numeric(0)
   for(i in 1:length(statusList)) {
@@ -217,77 +222,12 @@ correlate <- function(col, data, selectedMethod="pearson", debug=F) {
   
   validCol <- Filter(function(i){return(!(i %in% nonNumbers || i == col))}, names(data))
   numCols <- length(validCol)
-  maxConcurrent <- numCols
-  
-  writeLines(paste("Num Columns:", as.character(numCols)))
-  
-  if(maxConcurrent > numCores) {
-    maxConcurrent <- numCores
-  }
-  numProcessed <- 1
-  statusList <- "DUMMY"
-  
+  paramList <- vector(mode="list", length=numCols)
   for(i in 1:numCols) {
-    if(i == 1) {
-      statusList <- list(list(started=F,returned=F, result=NULL))
-    }  
-    else {
-      statusList <- c(statusList, list(list(started=F,returned=F,result=NULL)))
-    }
+      paramList[i] <- list(list(xCol = validCol[i], yCol = col, data = data[,names(data) %in% c(col, validCol[i])], selectedMethod = selectedMethod))
   }
   
-  nextIndex <- 1
-  for(i in 1:maxConcurrent) {
-    if(debug) {
-      writeLines(paste("Starting", nextIndex))
-    }
-    parallel(expr=runCorrelation(nextIndex, validCol[nextIndex], col, data, selectedMethod))
-    statusList[[nextIndex]]$started <- T
-    nextIndex <- nextIndex + 1
-  }
-  
-  numReturned <- 0
-  result <- NULL
-  
-  launchNew <- function(result){
-    numAvailable <- 0
-    for(i in 1:length(result)) {
-      
-      if(is.null(result) || as.character(result[i]) != "NULL") {
-        index <- result[[i]]$index
-        
-        if(statusList[[index]]$returned == F) {
-          if(debug) {
-            writeLines(paste("Results for Index", index, "returned"))
-          }
-          statusList[[index]]$returned <<- T
-          statusList[[index]]$result <<- result[[i]]
-          numAvailable <- numAvailable + 1
-        }
-      }
-    }
-    if(debug) {
-      writeLines("------------------------------------------------------------");
-    }
-    
-    if(numAvailable > 0) {
-      for(i in 1:numAvailable) {
-        if(nextIndex <= numCols) {
-          if(debug) {
-            writeLines(paste("Starting", as.character(nextIndex)))
-          }
-          parallel(expr=runCorrelation(nextIndex, validCol[nextIndex], col, data, selectedMethod))
-          statusList[[nextIndex]]$started <<- T
-          nextIndex <<- nextIndex + 1
-        }
-      }
-    }
-  }
-  
-  while(getNumReturned(statusList) < numCols) {
-    collect(intermediate=launchNew)
-  }
-  return(getResults(statusList))
+  runParallel(paramList=paramList, parallelFunction=runCorrelation, collectFunction=getCorrelationResults, debug=debug)
 }
 
 goodCorrelateThresh <- function(col, data, threshold, selectedMethod="pearson") {
@@ -547,10 +487,42 @@ averageTestResults <- function(results, column) {
   return(total / numResults)
 }
 
+tenFoldFunc <- function(index, paramList) {
+  training <- paramList$training
+  test <- paramList$test
+  intervalSize <- paramList$intervalSize
+  start <- paramList$start
+  modelFormula <- paramList$modelFormula
+  colName <- paramList$colName
+  verbose <- paramList$verbose
+  makeModelFun <- paramList$makeModelFun
+  testFun <- paramList$testFun
+  
+  model <- makeModelFun(training, intervalSize, start, modelFormula)
+  error <- testFun(model, test, colName, verbose)
+  
+  if(verbose) {
+    writeLines("-----------------------------------------------------------------")
+    writeLines(paste("Fold", index, ":", (error[["error_rate"]] * 100),"% Error Rate"))
+  }
+  
+  return(list(index=index, error = error))
+}
+
+tenFoldResults <- function(statusList) {
+  numResults <- length(statusList)
+  results <- vector(mode="list", length=numResults)
+  for(i in 1:numResults) {
+    results[i] <- list(statusList[[i]]$result$error)
+  }
+  return(results)
+}
+
 tenFold <- function(data, makeModelFun, intervalSize, start, testFun, colName, modelFormula, verbose=F) {
   if(nrow(data) < 10) {
     return(NULL)
   }
+  paramLists <- vector(mode="list", length=10)
   folds <- split(data, sample(rep(1:10, nrow(data)/10)))
   overallError <- numeric(0)
   for(i in 1:10) {
@@ -566,15 +538,10 @@ tenFold <- function(data, makeModelFun, intervalSize, start, testFun, colName, m
       }
     }
     
-    model <- makeModelFun(training, intervalSize, start, modelFormula)
-    error <- testFun(model, test, colName, verbose)
-    overallError <- c(overallError, list(error))
-    
-    if(verbose) {
-      writeLines("-----------------------------------------------------------------")
-      writeLines(paste("Fold", i, ":", (error[["error_rate"]] * 100),"% Error Rate"))
-    }
+    paramLists[i] <- list(list(makeModelFun = makeModelFun, testFun = testFun, test = test, training = training, intervalSize = intervalSize, start = start, colName = colName, modelFormula = modelFormula, verbose = verbose))   
   }
+  overallError <- runParallel(paramList=paramLists, parallelFunction=tenFoldFunc, collectFunction=tenFoldResults)
+  
   if(verbose) {
     writeLines(paste("Average Error Rate:", (averageTestResults(overallError, "error_rate") * 100), "%"))
   }
@@ -1137,4 +1104,73 @@ makeFullModelFunction <- function(data, colName, ignoreList=vector()) {
     }
   }
   return(functionString)
+}
+
+runParallel <- function(paramList, parallelFunction, collectFunction, debug=F) {
+  maxConcurrent <- length(paramList)
+  if(maxConcurrent > numCores) {
+    maxConcurrent <- numCores
+  }
+  
+  numJobs <- length(paramList)
+  
+  statusList <- vector(mode="list", length=numJobs)
+  
+  for(i in 1:numJobs) {
+      statusList[i]  <- list(list(started=F,returned=F, result=NULL, paramList=paramList[[i]]))
+  }
+  
+  nextIndex <- 1
+  for(i in 1:maxConcurrent) {
+    if(debug) {
+      writeLines(paste("Starting", nextIndex))
+    }
+    parallel(expr=parallelFunction(index=nextIndex, paramList=statusList[[nextIndex]]$paramList))
+    statusList[[nextIndex]]$started <- T
+    nextIndex <- nextIndex + 1
+  }
+  
+  numReturned <- 0
+  result <- NULL
+  
+  launchNew <- function(result){
+    numAvailable <- 0
+    
+    for(i in 1:length(result)) {
+      
+      if(is.null(result) || as.character(result[i]) != "NULL") {
+        index <- result[[i]]$index
+        
+        if(statusList[[index]]$returned == F) {
+          if(debug) {
+            writeLines(paste("Results for Index", index, "returned"))
+          }
+          statusList[[index]]$returned <<- T
+          statusList[[index]]$result <<- result[[i]]
+          numAvailable <- numAvailable + 1
+        }
+      }
+    }
+    if(debug) {
+      writeLines("------------------------------------------------------------");
+    }
+    
+    if(numAvailable > 0) {
+      for(i in 1:numAvailable) {
+        if(nextIndex <= numJobs) {
+          if(debug) {
+            writeLines(paste("Starting", as.character(nextIndex)))
+          }
+          parallel(expr=parallelFunction(index=nextIndex, paramList=statusList[[nextIndex]]$paramList))
+          statusList[[nextIndex]]$started <<- T
+          nextIndex <<- nextIndex + 1
+        }
+      }
+    }
+  }
+  
+  while(getNumReturned(statusList) < length(statusList)) {
+    collect(intermediate=launchNew)
+  }
+  return(collectFunction(statusList))
 }

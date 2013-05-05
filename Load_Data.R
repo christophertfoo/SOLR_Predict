@@ -26,6 +26,11 @@ SCSH1_Base <- mergeDataFrames(SCSH1, PHHI, "PHHI")
 SCSH1_Base <- mergeDataFrames(SCSH1_Base, SCBH1, "SCBH1")
 SCSH1_Base <- dataOffset(4, "SOLR", SCSH1_Base)
 
+rm(SCBH1)
+rm(PHHI)
+rm(SCSH1)
+gc()
+
 # Load Palehua Data
 setwd("..")
 setwd("Palehua_Data")
@@ -36,11 +41,19 @@ PHJR <- filterColumns(mergeCsv("PHJR"))
 PLHH1 <- filterColumns(mergeCsv("PLHH1"))
 WWFH1 <- filterColumns(mergeCsv("WWFH1"))
 
-PLHH1_Base <- mergeDataFrames(PLHH1, Data_51204, "51204")
+PLHH1_Base <- mergeDataFrames(PLHH1, Data_51204, "D51204")
 PLHH1_Base <- mergeDataFrames(PLHH1_Base, D3665, "D3665")
 PLHH1_Base <- mergeDataFrames(PLHH1_Base, HOFH1, "HOFH1")
 PLHH1_Base <- mergeDataFrames(PLHH1_Base, PHJR, "PHJR")
 PLHH1_Base <- mergeDataFrames(PLHH1_Base, WWFH1, "WWFH1")
 PLHH1_Base <- dataOffset(4, "SOLR", PLHH1_Base)
+
+rm(Data_51204)
+rm(D3665)
+rm(HOFH1)
+rm(PHJR)
+rm(PLHH1)
+rm(WWFH1)
+gc()
 
 setwd(currentWd)
