@@ -130,7 +130,7 @@ dataOffset <- function(numrows, col, data) {
   for(i in 1:(numrows - 1)) {
     for(j in 1:length(colNames)) {
       if(!(colNames[j] %in% ignoreList)){
-        data[[paste(colNames[j],"_",i,sep="")]] <- offsetRow(i, colNames[j], data)
+        data[[paste(colNames[j],"_",i,sep="")]] <- offsetRow(i, colNames[j], data)      
       }
     }
   }
@@ -397,7 +397,7 @@ testClassModelSolrHelper <- function(model, predictedClasses, data, colName, ver
     actual <- averageFactor(data[[colName]][i])
     predicted <- averageFactor(predictedClasses[i])
     if(is.na(actual) || is.na(predicted)) {
-      print("NA")
+      #print("NA")
     }
     if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
       errors <- errors + 1
@@ -894,7 +894,7 @@ testNightDayIntervals <- function(data, solrColName, verbose=F, checkAnn=F) {
 }
 
 testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbose=F, checkRandomForest=F, checkAnn=F) {
-  testData <- data[!is.na(data[[colName]]) && data[[colName]] > 1,]
+  testData <- data[!is.na(data[[colName]]) & data[[colName]] > 1,]
   testData["SOLR_D"] <- cut(testData[[colName]], numCuts)
   numIntervals <- ceiling(1440 / intervalSize)
   classModelFunction <- paste("SOLR_D ~", strsplit(modelFunction, "~")[[1]][2], sep="")
@@ -1158,7 +1158,7 @@ mergeDataFrames <- function(destFrame, sourceFrame, sourceName) {
   ignoreList <- c("MON", "DT", "DT_NUM", "TIME", "SINT")
   start <- sourceFrame[["DT_NUM"]][1]
   end <- sourceFrame[["DT_NUM"]][nrow(sourceFrame)]
-  inRange <- subset(destFrame, DT_NUM >= start && DT_NUM < end)
+  inRange <- subset(destFrame, DT_NUM >= start & DT_NUM < end)
   colNames <- names(sourceFrame)
   for(i in 1:length(colNames)) {
     if(!(colNames[i] %in% ignoreList)) {
