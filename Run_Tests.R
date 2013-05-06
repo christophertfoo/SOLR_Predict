@@ -62,21 +62,27 @@ sink()
 # testSolrIntervals(data=SCBH1_Base, colName="SOLR_4", modelFunction="SOLR_4 ~ SOLR_3 + SCSH1_SOLR_3 + SOLR_2 + SCSH1_SOLR_2 + VOLT_3")#, checkAnn=T, checkRandomForest=T)
 # sink()
 
+# REDO
 sink("SCSH1_P_Solr_Interval.out")
 testSolrIntervals(data=SCSH1_Base, colName="SOLR_4", modelFunction="SOLR_4 ~ SOLR_3 + FT_3 + TMPF_3 + SOLR_2 + SCBH1_FT_3")#, checkAnn=T, checkRandomForest=T)
 sink()
+
+#REDO
 sink("SCSH1_S_Solr_Interval.out")
 testSolrIntervals(data=SCSH1_Base, colName="SOLR_4", modelFunction="SOLR_4 ~ SOLR_3 + SOLR_2 + FT_3 + SCBH1_FT_3 + TMPF_3")#, checkAnn=T, checkRandomForest=T)
 sink()
+
 # NOTE Same as S
 # sink("SCSH1_K_Solr_Interval.out")
 # testSolrIntervals(data=SCSH1_Base, colName="SOLR_4", modelFunction="SOLR_4 ~ SOLR_3 + SOLR_2 + FT_3 + SCBH1_FT_3 + TMPF_3")#, checkAnn=T, checkRandomForest=T)
 # sink()
 
-
+# REDO
 sink("PLHH1_P_Solr_Interval.out")
 testSolrIntervals(data=PLHH1_Base, colName="SOLR_4", modelFunction="SOLR_4 ~ SOLR_3 + WWFH1_VOLT_3 + SOLR_2 + TMPF_3 + WWFH1_TMPF_3")#, checkAnn=T, checkRandomForest=T)
 sink()
+
+# REDO
 sink("PLHH1_S_Solr_Interval.out")
 testSolrIntervals(data=PLHH1_Base, colName="SOLR_4", modelFunction="SOLR_4 ~ SOLR_3 + SOLR_2 + WWFH1_VOLT_3 + PHJR_TMPF_3 + WWFH1_TMPF_3")#, checkAnn=T, checkRandomForest=T)
 sink()
@@ -87,6 +93,8 @@ sink()
 sink("SCBH1_A_Solr_Interval.out")
 testSolrIntervals(data=SCBH1_Base, colName="SOLR_4", modelFunction=makeFullModelFunction(data=SCBH1_Base, colName="SOLR_4"))#, checkAnn=T, checkRandomForest=T)
 sink()
+
+# START HERE
 sink("SCSH1_A_Solr_Interval.out")
 testSolrIntervals(data=SCSH1_Base, colName="SOLR_4", modelFunction=makeFullModelFunction(data=SCSH1_Base, colName="SOLR_4"))#, checkAnn=T, checkRandomForest=T)
 sink()
