@@ -898,6 +898,9 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
   if(filter) {
     testData <- data[!is.na(data[[colName]]) & data[[colName]] > 1,]
   }
+  else {
+    testData <- data
+  }
   
   numIntervals <- ceiling(1440 / intervalSize)
   
@@ -1289,7 +1292,7 @@ generateNDModels <- function(comboString, colName, data, ndThreshold=1) {
   data <- convertNightDay(data=data, colName=colName, threshold=ndThreshold)
   for(i in 1:length(modelStrings)) {
     string <- gsub("(^ +)|( +$)", "", modelStrings[i])
-    print(string)
+
     if(string == "NULL") {
       models <- c(models, list(list(start=start, end=end, model=NULL)))
     }
@@ -1320,7 +1323,7 @@ generateSolrModels <- function(comboString, colName, data, modelFormula, numCuts
   
   for(i in 1:length(modelStrings)) {
     string <- gsub("(^ +)|( +$)", "", modelStrings[i])
-    print(string)
+    
     if(string == "NULL") {
       models <- c(models, list(list(start=start, end=end, model=NULL, type="NULL")))
     }
@@ -1361,8 +1364,6 @@ createModel <- function(target, neighbors, offset, numFeatures, colName="SOLR", 
   
   solrColName <- paste("SOLR_", offset, sep="")
   
-  print(solrColName)
-  
   merged <- dataOffset(data=merged, col="SOLR", numrows=offset)
   
   bestNightDay <- testNightDayIntervals(data=merged, solrColName=solrColName, checkAnn=T)
@@ -1370,8 +1371,22 @@ createModel <- function(target, neighbors, offset, numFeatures, colName="SOLR", 
   modelFun <- makeTopFunction(data=merged, colName=solrColName, topThreshold=numFeatures, selectedMethod=selectedMethod)
   bestSolr <- testSolrIntervals(data=merged, colName=solrColName, modelFunction=modelFun, numCuts=1000)
   
-  return(list(ndModel=generateNDModels(comboString=bestNightDay$combo, data=merged, colName=solrColName, ndThreshold=1), solrModel=generateSolrModels(comboString=bestSolr$best_margin$combo, colName=solrColName, data=merged, modelFormula=modelFun, numCuts=1000)))
+  return(createModelHelper(ndCombo=bestNightDay$combo, solrCombo=bestSolr$best_margin$combo, data=merged, colName=solrColName, modelFun=modelFun))
   
+}
+
+createModelNoLoad <- function(data, colName, modelFun=NULL, numFeatures=10, selectedMethod="pearson") {
+  bestNightDay <- testNightDayIntervals(data=data, solrColName=colName, checkAnn=T)
+  if(is.null(modelFun)) {
+    modelFun <- makeTopFunction(data=data, colName=colName, topThreshold=numFeatures, selectedMethod=selectedMethod)
+  }
+  bestSolr <- testSolrIntervals(data=data, colName=colName, modelFunction=modelFun, numCuts=1000)
+  
+  return(createModelHelper(ndCombo=bestNightDay$combo, solrCombo=bestSolr$best_margin$combo, data=data, colName=colName, modelFun=modelFun))
+}
+
+createModelHelper <- function(ndCombo, solrCombo, data, colName, modelFun) {
+  return(list(ndModel=generateNDModels(comboString=ndCombo, data=data, colName=colName, ndThreshold=2), solrModel=generateSolrModels(comboString=solrCombo, colName=colName, data=data, modelFormula=modelFun, numCuts=1000)))
 }
 
 predictSolr <- function(model, data) {
@@ -1382,7 +1397,7 @@ predictSolr <- function(model, data) {
       predictions[i] <- 0
     }
     else {
-      predictions[i] <- predictSolrHelper(model, data)
+      predictions[i] <- predictSolrHelper(model, data[i,])
     }
   }
   return(predictions)
@@ -1390,17 +1405,58 @@ predictSolr <- function(model, data) {
 
 
 predictNightDay <- function(model, data) {
-  month <- data$MON
+  month <- data$MON 
   
-  # Implement better search later
+  # Implement better (binary?) search later
   for(i in 1:length(model$ndModel)) {
     if(month >= model$ndModel[[i]]$start && month <= model$ndModel[[i]]$end) {
-      type <- model$ndModel[[i]]$type
-      if(type == "Naive Bayes") {
-        
+      return(as.logical(predict(model$ndModel[[i]]$model, data, type="class")))
+    }
+  }
+}
+
+predictSolrHelper <- function(model, data) {
+  time <- data$TIME[1]
+
+  for(i in 1:length(model$solrModel)) {
+    if(time >= model$solrModel[[i]]$start && time <= model$solrModel[[i]]$end) {
+      type <- model$solrModel[[i]]$type
+      if(type == "NULL") {
+        return(0)
+      }
+      else if(type == "Linear Regression" || type == "Decision Tree" || type == "Random Forest") {
+        return(as.numeric(predict(model$solrModel[[i]]$model, data)[1]))
+      }
+      else {
+        return(averageFactor(predict(model$solrModel[[i]]$model, data, type="class")[1]))
       }
     }
   }
+}
+
+testPredictSolr <- function(data, colName, modelFun) {
+  cutoff <- ceiling(nrow(data) * 0.75)
+  
+  training <- data[1:cutoff,]
+  test <- data[(cutoff+1):(nrow(data)),]
+  model <- createModelNoLoad(data=training, colName=colName, modelFun=modelFun)
+  results <- predictSolr(model=model, data=test)
+  
+  errorMargin <- 0
+  actualSum <- 0
+  errors <- 0
+  for(i in 1:nrow(test)) {
+    predicted <- results[i] 
+    actual <- test[[colName]][i]
+
+    if(!is.na(actual) && !is.na(predicted) && predicted != actual) {
+      errorMargin <- errorMargin + abs(predicted - actual)
+      actualSum <- actualSum + actual
+      errors <- errors + 1
+    }
+  }
+  writeLines(paste("Error Margin:", errorMargin / errors))
+  writeLines(paste("Error Percent:", (errorMargin / actualSum * 100), "%"))
 }
 
 runParallel <- function(paramList, parallelFunction, collectFunction, debug=F) {
