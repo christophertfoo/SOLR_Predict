@@ -26,9 +26,7 @@ SCSH1_Base <- mergeDataFrames(SCSH1, PHHI, "PHHI")
 SCSH1_Base <- mergeDataFrames(SCSH1_Base, SCBH1, "SCBH1")
 SCSH1_Base <- dataOffset(4, "SOLR", SCSH1_Base)
 
-rm(SCBH1)
 rm(PHHI)
-rm(SCSH1)
 gc()
 
 # Load Palehua Data
@@ -52,7 +50,6 @@ rm(Data_51204)
 rm(D3665)
 rm(HOFH1)
 rm(PHJR)
-rm(PLHH1)
 rm(WWFH1)
 gc()
 
