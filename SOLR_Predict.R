@@ -231,8 +231,10 @@ correlate <- function(col, data, selectedMethod="pearson", debug=F) {
   runParallel(paramList=paramList, parallelFunction=runCorrelation, collectFunction=getCorrelationResults, debug=debug)
 }
 
-goodCorrelateThresh <- function(col, data, threshold, selectedMethod="pearson") {
+goodCorrelateThresh <- function(col, data, threshold, selectedMethod="pearson", results=NULL) {
+  if(is.null(results)) {
   results <- correlate(col, data, selectedMethod)
+  }
   good <- numeric(0)
   goodNames <- character(0)
   for(i in 1:nrow(results)) {
@@ -247,8 +249,10 @@ goodCorrelateThresh <- function(col, data, threshold, selectedMethod="pearson") 
   return(goodResults)
 }
 
-goodCorrelateTop <- function(col, data, topThreshold, selectedMethod="pearson") {
-  results <- correlate(col, data, selectedMethod)
+goodCorrelateTop <- function(col, data, topThreshold, selectedMethod="pearson", results=NULL) {
+  if(is.null(results)) {
+    results <- correlate(col, data, selectedMethod)
+  }
   if(nrow(results) < topThreshold) {
     numResults <- nrow(results)
   }
@@ -1246,9 +1250,9 @@ makeFullModelFunction <- function(data, colName, ignoreList=vector()) {
   return(functionString)
 }
 
-makeTopFunction <- function(data, colName, topThreshold, selectedMethod="pearson", ignoreList=vector()) {
+makeTopFunction <- function(data, colName, topThreshold, selectedMethod="pearson", ignoreList=vector(), correlationResults=NULL) {
   first <- T
-  results <- goodCorrelateTop(data=data, col=colName, topThreshold=topThreshold, selectedMethod=selectedMethod)[["names"]]
+  results <- goodCorrelateTop(data=data, col=colName, topThreshold=topThreshold, selectedMethod=selectedMethod, results=correlationResults)[["names"]]
   functionString <- paste(colName, "~")
   for(i in results) {
     if(i != colName && i != "DT" && !(i %in% ignoreList)) {
@@ -1264,9 +1268,9 @@ makeTopFunction <- function(data, colName, topThreshold, selectedMethod="pearson
   return(functionString)
 }
 
-makeThreshFunction <- function(data, colName, threshold, selectedMethod="pearson", ignoreList=vector()) {
+makeThreshFunction <- function(data, colName, threshold, selectedMethod="pearson", ignoreList=vector(), correlationResults=NULL) {
   first <- T
-  results <- goodCorrelateThresh(data=data, col=colName, threshold=threshold, selectedMethod=selectedMethod)[["names"]]
+  results <- goodCorrelateThresh(data=data, col=colName, threshold=threshold, selectedMethod=selectedMethod, results=correlationResults)[["names"]]
   functionString <- paste(colName, "~")
   for(i in results) {
     if(i != colName && i != "DT" && !(i %in% ignoreList)) {

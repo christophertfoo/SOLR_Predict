@@ -50,51 +50,7 @@ source('Load_Data.R')
 # testSolrCuts(data=PLHH1_Base, colName="SOLR_4", modelFunction="SOLR_4 ~ SOLR_3 + SOLR_2 + WWFH1_VOLT_3 + PHJR_TMPF_3 + WWFH1_TMPF_3", checkAnn=T)
 # sink()
 
-writeLines("Generating Functions")
-SCBH1_P_5 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=5, selectedMethod="pearson")
-SCBH1_P_10 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=10, selectedMethod="pearson")
-SCBH1_P_15 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=15, selectedMethod="pearson")
-SCBH1_P_20 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=20, selectedMethod="pearson")
-
-SCBH1_S_5 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=5, selectedMethod="spearman")
-SCBH1_S_10 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=10, selectedMethod="spearman")
-SCBH1_S_15 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=15, selectedMethod="spearman")
-SCBH1_S_20 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=20, selectedMethod="spearman")
-
-SCBH1_K_5 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=5, selectedMethod="kendall")
-SCBH1_K_10 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=10, selectedMethod="kendall")
-SCBH1_K_15 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=15, selectedMethod="kendall")
-SCBH1_K_20 <- makeTopFunction(data=SCBH1_Base, colName="SOLR_4", topThreshold=20, selectedMethod="kendall")
-
-SCSH1_P_5 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=5, selectedMethod="pearson")
-SCSH1_P_10 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=10, selectedMethod="pearson")
-SCSH1_P_15 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=15, selectedMethod="pearson")
-SCSH1_P_20 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=20, selectedMethod="pearson")
-
-SCSH1_S_5 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=5, selectedMethod="spearman")
-SCSH1_S_10 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=10, selectedMethod="spearman")
-SCSH1_S_15 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=15, selectedMethod="spearman")
-SCSH1_S_20 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=20, selectedMethod="spearman")
-
-SCSH1_K_5 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=5, selectedMethod="kendall")
-SCSH1_K_10 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=10, selectedMethod="kendall")
-SCSH1_K_15 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=15, selectedMethod="kendall")
-SCSH1_K_20 <- makeTopFunction(data=SCSH1_Base, colName="SOLR_4", topThreshold=20, selectedMethod="kendall")
-
-PLHH1_P_5 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=5, selectedMethod="pearson")
-PLHH1_P_10 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=10, selectedMethod="pearson")
-PLHH1_P_15 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=15, selectedMethod="pearson")
-PLHH1_P_20 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=20, selectedMethod="pearson")
-
-PLHH1_S_5 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=5, selectedMethod="spearman")
-PLHH1_S_10 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=10, selectedMethod="spearman")
-PLHH1_S_15 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=15, selectedMethod="spearman")
-PLHH1_S_20 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=20, selectedMethod="spearman")
-
-PLHH1_K_5 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=5, selectedMethod="kendall")
-PLHH1_K_10 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=10, selectedMethod="kendall")
-PLHH1_K_15 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=15, selectedMethod="kendall")
-PLHH1_K_20 <- makeTopFunction(data=PLHH1_Base, colName="SOLR_4", topThreshold=20, selectedMethod="kendall")
+source('Load_Functions.R')
 
 writeLines("Testing Solr Intervals")
 writeLines("SCBH1")
