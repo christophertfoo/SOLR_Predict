@@ -4,7 +4,10 @@ library("rpart")
 library("nnet")
 library('randomForest')
 
-numCores <- multicore:::detectCores()
+source('Parallel.R')
+source('Correlation.R')
+source('Night_Day.R')
+source('Solr.R')
 
 # Gets the names of all CSV files in the current working directory.
 #
@@ -73,7 +76,14 @@ filterData <-function(data, col) {
   return(data[data[[col]] > 0 & !is.na(data[[col]]),])
 }
 
-# Parallelize this!
+# Converts the date and time fields of the given data frame into a single numeric
+# value.
+#
+# Parameters:
+#  -data = The data frame to convert the date of.
+#
+# Returns:
+#   -A vector containing the converted date values.
 convertDate <- function(data) {
   dateStrings <- vector(mode="character", length=nrow(data))
   start <- proc.time()
@@ -90,6 +100,13 @@ convertDate <- function(data) {
   return(returnValue)
 }
 
+# Converts the time columns of the given data frame into a single value.
+#
+# Parameters:
+#  -data = The data frame to convert the time of.
+#
+# Returns:
+#  -A vector containing the converted values.
 convertTime <- function(data)  {
   timeValues <- vector(mode="numeric", length=nrow(data))
   start <- proc.time()
@@ -101,6 +118,20 @@ convertTime <- function(data)  {
   return(timeValues)
 }
 
+# Determines whether each in the given data frame is during the day or night and
+# adds a new column to the data frame containing this determination.  A row is
+# during the night if it's SOLR value is less then a given threshold.
+#
+# Parameters:
+#  -data      = The data frame to check.
+#  -colName   = The name of the SOLR column that will be used to perform the
+#               thresholding.
+#  -threshold = The threshold that will be used to determine if a given row is during
+#               the day or night.
+#
+# Returns:
+#  -The modified data frame with a new ND column that contains whether the given row
+#   is during the day or night.
 convertNightDay <- function(data, colName, threshold) {
   nightDay <-logical(0)
   for(i in 1:nrow(data)) {
@@ -115,7 +146,20 @@ convertNightDay <- function(data, colName, threshold) {
   return(data)
 }
 
-offsetRow <- function(numrows, col, data) {
+# Offsets a given column in the given data frame up the given number of rows and returns
+# the offset column.
+#
+# NOTE:  It "offsets" it by grabbing the values past the offset and then padding the
+#        columns with NAs.
+#
+# Parameters:
+#  -numrows = The number of row to offset the column by.
+#  -col     = The name of the column to offset.
+#  -data    = The data frame containing the column to offset.
+#
+# Returns:
+#  -The offset column.
+offsetCol <- function(numrows, col, data) {
   tempData <- data[(numrows+1):nrow(data),]
   newCol <- tempData[order(tempData$DT_NUM, decreasing=F),col]
   for(i in 1:numrows) {
@@ -124,173 +168,59 @@ offsetRow <- function(numrows, col, data) {
   return(newCol)
 }
 
+# Offsets the given column of the given data frame by numrows rows to associate the column
+# with the data from numrows previous rows.
+#
+# NOTE: Each row that was offset will have a suffix of _# where # is the number of times it
+#       was offset.  Ex. If SOLR_4 is the highest suffix (i.e. the SOLR value of the row that we
+#       are trying to associate the previous data to or the "result" row), SOLR_3 would be the 
+#       SOLR value of row previous to our "result" row, SOLR_2 would be 2 rows previous, SOLR_1 would
+#       be 3 rows previous, and SOLR would be 4 rows previous.
+#
+# Parameters:
+#  -numrows = The number of rows previous to offset (i.e. the number of previous rows to associate with each
+#             row).
+#  -col     = The name of the column that will be associated with the previous data.
+#  -data    = The data frame containing the data to be offset.
+#
+# Returns:
+#  -The offset data frame with the given column associated with the given number of previous rows.
 dataOffset <- function(numrows, col, data) {
   ignoreList <- c("MON", "DT", "DT_NUM", "TIME")
   colNames <- names(data)
+  
+  # Offset other columns numrows - 1 times
   for(i in 1:(numrows - 1)) {
     for(j in 1:length(colNames)) {
       if(!(colNames[j] %in% ignoreList)){
-        data[[paste(colNames[j],"_",i,sep="")]] <- offsetRow(i, colNames[j], data)      
+        data[[paste(colNames[j],"_",i,sep="")]] <- offsetCol(i, colNames[j], data)      
       }
     }
   }
-  data[["MON"]] <- offsetRow(numrows, "MON", data)
-  data[["DT"]] <- offsetRow(numrows, "DT", data)
-  data[["DT_NUM"]] <- offsetRow(numrows, "DT_NUM", data)
-  data[["TIME"]] <- offsetRow(numrows, "TIME", data)
-  data[[paste(col,"_",numrows,sep="")]] <- offsetRow(numrows, col,data)
+  
+  # Set the invariant columns (i.e. date / time)
+  data[["MON"]] <- offsetCol(numrows, "MON", data)
+  data[["DT"]] <- offsetCol(numrows, "DT", data)
+  data[["DT_NUM"]] <- offsetCol(numrows, "DT_NUM", data)
+  data[["TIME"]] <- offsetCol(numrows, "TIME", data)
+  
+  # Offset the specified column numrows times
+  data[[paste(col,"_",numrows,sep="")]] <- offsetCol(numrows, col,data)
+  
+  # Truncate and sort the data frame
   data <- data[1:(nrow(data)-numrows),]
   data <- data[order(data$DT_NUM, decreasing=F),]
   return(data)
 }
 
-runCorrelation <- function(index, paramList) {
-  index <- index
-  xCol <- paramList$xCol
-  yCol <- paramList$yCol
-  data <- paramList$data
-  selectedMethod <- paramList$selectedMethod
-  correlation <- cor(data[[xCol]], data[[yCol]], use="pairwise.complete.obs", method=selectedMethod)
-  return(list(index=index, name=xCol, correlation=correlation))  
-}
-
-getNumStarted <- function(statusList) {
-  count <- 0
-  for(i in 1:length(statusList)) {
-    if(statusList[[i]]$started) {
-      count <- count + 1
-    }
-  }
-  return(count)
-}
-
-getNumReturned <- function(statusList) {
-  count <- 0
-  for(i in 1:length(statusList)) {
-    if(statusList[[i]]$returned) {
-      count <- count + 1
-    }
-  }
-  return(count)
-}
-
-getCorrelationResults <- function(statusList) {
-  colNames <- character(0)
-  correlations <- numeric(0)
-  for(i in 1:length(statusList)) {
-    colNames <- c(colNames, statusList[[i]]$result$name)
-    correlations <- c(correlations, statusList[[i]]$result$correlation)
-  }
-  return(data.frame(names=colNames, correlations=correlations))
-}
-
-filterColumns <- function(data, cutoff=0.5) {
-  colNames <- names(data)
-  for(i in 1:length(colNames)) {
-    numNA <- 0
-    numRows <- nrow(data)
-    for(j in 1:numRows) {
-      if(is.na(data[[colNames[i]]][j])) {
-        numNA <- numNA + 1
-        if(numNA / numRows > cutoff) {
-          writeLines(paste("Removing:", colNames[i]))#, paste("(",numNA," NAs)",sep="")))
-          data[[colNames[i]]] <- NULL
-          break
-        }
-      }
-    }
-  }
-  return(data)
-}
-
-correlate <- function(col, data, selectedMethod="pearson", debug=F) {
-  nonNumbers <- c()
-  colNames <- names(data)
-  for(i in 1:length(colNames)) {
-    if(!is.numeric(data[,colNames[i]][0])) {
-      nonNumbers <- c(nonNumbers, colNames[i])
-    }
-  }
-  
-  numNonNum <- length(nonNumbers)
-  
-  if(numNonNum > 0) {
-    writeLines("Ignoring:")
-    for(i in 1:numNonNum){
-      writeLines(nonNumbers[i])
-    }
-  }
-  
-  validCol <- Filter(function(i){return(!(i %in% nonNumbers || i == col))}, names(data))
-  numCols <- length(validCol)
-  paramList <- vector(mode="list", length=numCols)
-  for(i in 1:numCols) {
-    paramList[i] <- list(list(xCol = validCol[i], yCol = col, data = data[,names(data) %in% c(col, validCol[i])], selectedMethod = selectedMethod))
-  }
-  
-  runParallel(paramList=paramList, parallelFunction=runCorrelation, collectFunction=getCorrelationResults, debug=debug)
-}
-
-goodCorrelateThresh <- function(col, data, threshold, selectedMethod="pearson", results=NULL) {
-  if(is.null(results)) {
-  results <- correlate(col, data, selectedMethod)
-  }
-  good <- numeric(0)
-  goodNames <- character(0)
-  for(i in 1:nrow(results)) {
-    correlation <- results$correlations[[i]]
-    if(is.numeric(correlation) && !is.na(correlation) && abs(correlation) >= threshold) {
-      good <- c(good, correlation)
-      goodNames <- c(goodNames, as.character(results$names[[i]]))
-    }
-  }
-  
-  goodResults <- data.frame(attribute=goodNames, correlation=good)
-  return(goodResults)
-}
-
-goodCorrelateTop <- function(col, data, topThreshold, selectedMethod="pearson", results=NULL) {
-  if(is.null(results)) {
-    results <- correlate(col, data, selectedMethod)
-  }
-  if(nrow(results) < topThreshold) {
-    numResults <- nrow(results)
-  }
-  else {
-    numResults <- topThreshold
-  }
-  results <- results[order(abs(results$correlations), decreasing=T),]
-  return(results[1:numResults,])
-}
-
-logCorrelations <- function(col, data, filePrefix, getTop=F, numTop=5) {
-  writeLines("Pearson:")
-  sink(paste(filePrefix, "_pearson.out", sep=""))
-  print(correlate(col=col, data=data, selectedMethod="pearson"))
-  if(getTop) {
-    writeLines("Top 20 Fields:")
-    print(goodCorrelateTop(col=col, data=data, selectedMethod="pearson", topThreshold=numTop))
-  }
-  sink()
-  writeLines("Spearman")
-  sink(paste(filePrefix, "_spearman.out", sep=""))
-  print(correlate(col=col, data=data, selectedMethod="spearman"))
-  if(getTop) {
-    writeLines("Top 20 Fields:")
-    print(goodCorrelateTop(col=col, data=data, selectedMethod="spearman", topThreshold=numTop))
-  }
-  sink()
-  writeLines("Kendall")
-  sink(paste(filePrefix, "_kendall.out", sep=""))
-  print(correlate(col=col, data=data, selectedMethod="kendall"))
-  if(getTop) {
-    writeLines("Top 20 Fields:")
-    print(goodCorrelateTop(col=col, data=data, selectedMethod="kendall", topThreshold=numTop))
-  }
-  sink()
-  writeLines("Done")
-}
-
+# Converts the result from a tree model prediction to the same form as the other
+# results.
+#
+# Parameters:
+#  -result = The results of a predict call.
+#
+# Returns:
+#  -The converted result set.
 convertTreeResult <- function(result) {
   returnList <- character(0)
   colNames <- colnames(result)
@@ -314,175 +244,14 @@ convertTreeResult <- function(result) {
   return(returnList)
 }
 
-testTreeModelNightDay <- function(model, data, colName, verbose=F) {
-  predicted <- convertTreeResult(predict(model, data))
-  return(testModelNightDayHelper(model, predicted, data, colName, verbose))
-}
-
-testNbModelNightDay <- function(model, data, colName, verbose=F) {
-  predicted <- predict(model, data)
-  return(testModelNightDayHelper(model, predicted, data, colName, verbose))
-}
-
-testAnnModelNightDay <- function(model, data, colName, verbose=F) {
-  predicted <- predict(model, data, type="class")
-  return(testModelNightDayHelper(model, predicted, data, colName, verbose))
-}
-
-testModelNightDayHelper <- function(model, predicted, data, colName, verbose=F) {
-  errors <- 0
-  falsePositive <- 0
-  falseNegative <- 0
-  numRows <- nrow(data)
-  for(i in 1:numRows) {
-    actualValue <- data[[colName]][i]
-    if(actualValue != predicted[i]) {
-      errors <- errors + 1
-      if(as.logical(actualValue)) {
-        falseNegative <- falseNegative + 1
-      }
-      else {
-        falsePositive <- falsePositive + 1
-      }
-    }
-  }
-  if(verbose) {
-    print(paste("Errors:", errors, "/", numRows))
-  }
-  return(list(error_rate=(errors / numRows), false_positive=(falsePositive / errors), false_negative=(falseNegative / errors)))
-}
-
-testVectorModelSolr <- function(model, data, colName, verbose=F) {
-  predictedVector <- predict(model, data)
-  errors <- 0
-  errorMargins <- numeric(0)
-  actualSum <- 0
-  for(i in 1:nrow(data)) {
-    actual <- data[[colName]][i]
-    predicted <- predictedVector[i]
-    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
-      errors <- errors + 1
-      errorMargins <- c(errorMargins, abs(actual - predicted))
-      actualSum <- actualSum + abs(actual)
-    }
-  }
-  if(verbose) {
-    print(paste("Errors:", errors, "/", nrow(data)))
-  }
-  
-  if(errors == 0) {
-    resultErrorMargin <- 0
-    resultErrorPercent <- 0
-    resultErrorSd <- 0
-  }
-  else {
-    resultErrorMargin <- (sum(errorMargins) / errors)
-    resultErrorPercent <- (sum(errorMargins) / actualSum)
-    resultErrorSd <- sd(errorMargins)
-  }
-  
-  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd))
-}
-
-testClassModelSolr <- function(model, data, colName, verbose=F) {
-  predictedClasses <- predict(model, data)
-  return(testClassModelSolrHelper(model, predictedClasses, data, colName, verbose))
-}
-
-testAnnModelSolr <- function(model, data, colName, verbose=F) {
-  predictedClasses <- predict(model, data, type="class")  
-  return(testClassModelSolrHelper(model, predictedClasses, data, colName, verbose))
-}
-
-testClassModelSolrHelper <- function(model, predictedClasses, data, colName, verbose=F) {
-  errors <- 0
-  actualSum <- 0
-  errorMargins <- numeric(0)
-  for(i in 1:nrow(data)) {
-    actual <- averageFactor(data[[colName]][i])
-    predicted <- averageFactor(predictedClasses[i])
-    if(is.na(actual) || is.na(predicted)) {
-      #print("NA")
-    }
-    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
-      errors <- errors + 1
-      errorMargins <- c(errorMargins, abs(actual - predicted))
-      actualSum <- actualSum + abs(actual)
-    }
-  }
-  if(verbose) {
-    print(paste("Errors:", errors, "/", nrow(data)))
-  }
-  
-  if(errors == 0) {
-    resultErrorMargin <- 0
-    resultErrorPercent <- 0
-    resultErrorSd <- 0
-  }
-  else {
-    resultErrorMargin <- (sum(errorMargins) / errors)
-    resultErrorPercent <- (sum(errorMargins) / actualSum)
-    resultErrorSd <- sd(errorMargins)
-  }
-  
-  return(list(error_rate=(errors / nrow(data)), error_margin= resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd))
-}
-
-makeTreeNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
-  if(intervalSize == 0) {
-    training <- data
-  }
-  else {
-    training <- data[data$MON %in% start:(start + intervalSize - 1),]
-  }
-  return(rpart(formula=as.formula(modelFormula), data=training, na.action=na.omit))
-}
-
-makeNbNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
-  if(intervalSize == 0) {
-    training <- data
-  }
-  else {
-    training <- data[data$MON %in% start:(start + intervalSize - 1),]
-  }
-  return(naiveBayes(formula=as.formula(modelFormula), data=training, na.action=na.omit))
-}
-
-makeAnnNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
-  if(intervalSize == 0) {
-    training <- data
-  }
-  else {
-    training <- data[data$MON %in% start:(start + intervalSize - 1),]
-  }
-  return(nnet(formula=as.formula(modelFormula), data=training, na.action=na.omit, size=1, trace=FALSE))
-}
-
-makeLmSolr <- function(data, intervalSize, start, modelFormula) {
-  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
-  return(lm(formula=as.formula(modelFormula), data=training, na.action=na.omit))
-}
-
-makeTreeSolr <- function(data, intervalSize, start, modelFormula) {
-  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
-  return(rpart(formula=as.formula(modelFormula), data=training, method="anova", na.action=na.omit))
-}
-
-makeNbSolr <- function(data, intervalSize, start, modelFormula) {
-  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
-  return(naiveBayes(formula=as.formula(modelFormula), data=training, na.action=na.omit))
-}
-
-makeAnnSolr <- function(data, intervalSize, start, modelFormula) {
-  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
-  return(nnet(formula=as.formula(modelFormula), data=training, size=1, na.action=na.omit, trace=FALSE, MaxNWts=5000))
-}
-
-makeRandomForestSolr <- function(data, intervalSize, start, modelFormula) {
-  training <- data[data$TIME %in% start:(start + intervalSize - 1),]
-  return(randomForest(formula=as.formula(modelFormula), data=training, na.action=na.omit))
-}
-
+# Averages the specified column of the given results vector.
+#
+# Parameters:
+#  -results = The vector containing the results.
+#  -column  = The name of the column to average.
+#
+# Returns:
+#  -The average of the specified column.
 averageTestResults <- function(results, column) {
   total <- 0
   numResults <- length(results)
@@ -492,6 +261,14 @@ averageTestResults <- function(results, column) {
   return(total / numResults)
 }
 
+# Runs a single fold in the ten-fold validation for a single model type.
+#
+# Parameters:
+#  -index     = The index of the function call in the list of scheduled function calls.
+#  -paramList = The parameters for the function call.
+#
+# Returns:
+#  -Returns a list containing the index of the call and results of the call.
 tenFoldFunc <- function(index, paramList) {
   training <- paramList$training
   test <- paramList$test
@@ -514,6 +291,13 @@ tenFoldFunc <- function(index, paramList) {
   return(list(index=index, error = error))
 }
 
+# Collects the results of the ten-fold validation.
+#
+# Parameters:
+#  -statusList = The list of function statuses.
+#
+# Returns:
+#  -The collected / combined results.
 tenFoldResults <- function(statusList) {
   numResults <- length(statusList)
   results <- vector(mode="list", length=numResults)
@@ -523,6 +307,20 @@ tenFoldResults <- function(statusList) {
   return(results)
 }
 
+# Runs ten-fold validation for a given model type.
+#
+# Parameters:
+#  -data         = The data to be used for the training / validation.
+#  -makeModelFun = The function used to create and train the model.
+#  -intervalSize = The size of the interval that the model covers.
+#  -start        = The start of the interval to be tested.
+#  -testFun      = The function that will be used to run the test for each fold.
+#  -colName      = The name of the column that the model will predict.
+#  -modelFormula = The "formula" used to build the model.
+#  -verbose      = If the function should print verbose output.
+#
+# Returns:
+#  -The results of the ten-fold validation.
 tenFold <- function(data, makeModelFun, intervalSize, start, testFun, colName, modelFormula, verbose=F) {
   if(nrow(data) < 10) {
     return(NULL)
@@ -553,569 +351,13 @@ tenFold <- function(data, makeModelFun, intervalSize, start, testFun, colName, m
   return(overallError)
 }
 
-testNightDay <- function(data, intervalSize, checkAnn=F, verbose=F) {
-  nbResults <- vector()
-  dtResults <- vector()
-  annResults <- vector()
-  bestResults <- vector()
-  bestCombo <- character(0)
-  
-  for(i in 1:ceiling(12 / intervalSize)) {
-    start <- 1 + ((i - 1) * intervalSize)
-    end <- start + intervalSize - 1
-    if(verbose) {
-      writeLines(paste("Interval", start, "-", end, ":"))
-      writeLines("-----------------------------------------------------------------------------------------------------------------")
-    }
-    intervalResult <- tenFold(subset(data, MON %in% start:end), makeNbNightDay, intervalSize, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
-    nbResults <- c(nbResults, intervalResult)
-    bestResult <- intervalResult
-    bestModel <- "Naive Bayes"
-    
-    if(verbose) {
-      writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-      writeLines(paste("Interval False Positive % for Naive Bayes:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-      writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-    }
-    
-    intervalResult <- tenFold(subset(data, MON %in% start:end), makeTreeNightDay, intervalSize, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
-    dtResults <- c(dtResults, intervalResult)
-    
-    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-      bestResult <- intervalResult
-      bestModel <- "Decision Tree"
-    }
-    
-    if(verbose) {
-      writeLines("")
-      writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-      writeLines(paste("Interval False Positive % for Decision Tree:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-      writeLines(paste("Interval False Negative % for Decision Tree:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-      writeLines("-----------------------------------------------------------------------------------------------------------------")
-    }
-    
-    if(checkAnn) {
-      intervalResult <- tenFold(subset(data, MON %in% start:end), makeAnnNightDay, intervalSize, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
-      annResults <- c(annResults, intervalResult)
-      
-      if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-        bestResult <- intervalResult
-        bestModel <- "ANN"
-      }
-      
-      if(verbose) {
-        writeLines("")
-        writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-        writeLines(paste("Interval False Positive % for ANN:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-        writeLines(paste("Interval False Negative % for ANN:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-        writeLines("-----------------------------------------------------------------------------------------------------------------")
-      }
-    }
-    
-    bestResults <- c(bestResults, bestResult)
-    bestCombo <- c(bestCombo, bestModel)
-  }
-  writeLines(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResults, "error_rate") * 100), "%"))
-  writeLines(paste("Average False Positive % for Naive Bayes:", (averageTestResults(nbResults, "false_positive") * 100), "%"))
-  writeLines(paste("Average False Negative % for Naive Bayes:", (averageTestResults(nbResults, "false_negative") * 100), "%"))
-  writeLines("")
-  writeLines(paste("Average Error Rate for Decision Tree:", (averageTestResults(dtResults, "error_rate") * 100), "%"))
-  writeLines(paste("Average False Positive % for Decision Tree:", (averageTestResults(dtResults, "false_positive") * 100), "%"))
-  writeLines(paste("Average False Negative % for Decision Tree:", (averageTestResults(dtResults, "false_negative") * 100), "%"))
-  if(checkAnn) {
-    writeLines("")
-    writeLines(paste("Average Error Rate for ANN:", (averageTestResults(annResults, "error_rate") * 100), "%"))
-    writeLines(paste("Average False Positive % for ANN:", (averageTestResults(annResults, "false_positive") * 100), "%"))
-    writeLines(paste("Average False Negative % for ANN:", (averageTestResults(annResults, "false_negative") * 100), "%"))
-  }
-  bestErrorRate <- (averageTestResults(bestResults, "error_rate") * 100)
-  writeLines("")
-  writeLines(paste("Average Error Rate for Best:", bestErrorRate, "%"))
-  writeLines(paste("Average False Positive % for Best:", (averageTestResults(bestResults, "false_positive") * 100), "%"))
-  writeLines(paste("Average False Negative % for Best:", (averageTestResults(bestResults, "false_negative") * 100), "%"))
-  bestComboString = getCombo(bestCombo)
-  writeLines(paste("Best Combo:", bestComboString))
-  return(list(error_rate=bestErrorRate, combo=bestComboString))
-}
-
-testNightDaySeason <- function(data, checkAnn=F, verbose=F) {
-  nbResults <- vector()
-  dtResults <- vector()
-  annResults <- vector()
-  bestResults <- vector()
-  
-  if(verbose) {
-    writeLines(paste("Interval Spring:"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeNbNightDay, 0, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
-  nbResults <- c(nbResults, intervalResult)
-  bestResult <- intervalResult
-  
-  if(verbose) {
-    writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-    writeLines(paste("Interval False Positive % for Naive Bayes:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-    writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-  }
-  
-  intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeTreeNightDay, 0, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
-  dtResults <- c(dtResults, intervalResult)
-  
-  if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-    bestResult <- intervalResult
-  }
-  
-  if(verbose) {
-    writeLines("")
-    writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-    writeLines(paste("Interval False Positive % for Decision Tree:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-    writeLines(paste("Interval False Negative % for Decision Tree:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  
-  if(checkAnn) {
-    intervalResult <- tenFold(subset(data, MON %in% c(3, 4, 5)), makeAnnNightDay, 0, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
-    annResults <- c(annResults, intervalResult)
-    
-    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-      bestResult <- intervalResult
-    }
-    
-    if(verbose) {
-      writeLines("")
-      writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-      writeLines(paste("Interval False Positive % for ANN:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-      writeLines(paste("Interval False Negative % for ANN:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-      writeLines("-----------------------------------------------------------------------------------------------------------------")
-    }
-  }
-  
-  bestResults <- c(bestResults, bestResult)
-  
-  if(verbose) {
-    writeLines(paste("Interval Summer:"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeNbNightDay, 0, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
-  nbResults <- c(nbResults, intervalResult)
-  bestResult <- intervalResult
-  
-  if(verbose) {
-    writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-    writeLines(paste("Interval False Positive % for Naive Bayes:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-    writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-  }
-  
-  intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeTreeNightDay, 0, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
-  dtResults <- c(dtResults, intervalResult)
-  
-  if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-    bestResult <- intervalResult
-  }
-  
-  if(verbose) {
-    writeLines("")
-    writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-    writeLines(paste("Interval False Positive % for Decision Tree:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-    writeLines(paste("Interval False Negative % for Decision Tree:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  
-  if(checkAnn) {
-    intervalResult <- tenFold(subset(data, MON %in% c(6, 7, 8)), makeAnnNightDay, 0, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
-    annResults <- c(annResults, intervalResult)
-    
-    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-      bestResult <- intervalResult
-    }
-    
-    if(verbose) {
-      writeLines("")
-      writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-      writeLines(paste("Interval False Positive % for ANN:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-      writeLines(paste("Interval False Negative % for ANN:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-      writeLines("-----------------------------------------------------------------------------------------------------------------")
-    }
-  }
-  
-  bestResults <- c(bestResults, bestResult)
-  
-  if(verbose) {
-    writeLines(paste("Interval Fall:"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeNbNightDay, 0, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
-  nbResults <- c(nbResults, intervalResult)
-  bestResult <- intervalResult
-  
-  if(verbose) {
-    writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-    writeLines(paste("Interval False Positive % for Naive Bayes:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-    writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-  }
-  
-  intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeTreeNightDay, 0, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
-  dtResults <- c(dtResults, intervalResult)
-  
-  if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-    bestResult <- intervalResult
-  }
-  
-  if(verbose) {
-    writeLines("")
-    writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-    writeLines(paste("Interval False Positive % for Decision Tree:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-    writeLines(paste("Interval False Negative % for Decision Tree:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  
-  if(checkAnn) {
-    intervalResult <- tenFold(subset(data, MON %in% c(9, 10, 11)), makeAnnNightDay, 0, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
-    annResults <- c(annResults, intervalResult)
-    
-    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-      bestResult <- intervalResult
-    }
-    
-    if(verbose) {
-      writeLines("")
-      writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-      writeLines(paste("Interval False Positive % for ANN:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-      writeLines(paste("Interval False Negative % for ANN:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-      writeLines("-----------------------------------------------------------------------------------------------------------------")
-    }
-  }
-  
-  bestResults <- c(bestResults, bestResult)
-  
-  if(verbose) {
-    writeLines(paste("Interval Winter:"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeNbNightDay, 0, start, testNbModelNightDay, "ND", "ND ~ TIME + MON", F)
-  nbResults <- c(nbResults, intervalResult)
-  bestResult <- intervalResult
-  
-  if(verbose) {
-    writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-    writeLines(paste("Interval False Positive % for Naive Bayes:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-    writeLines(paste("Interval False Negative % for Naive Bayes:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-  }
-  
-  intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeTreeNightDay, 0, start, testTreeModelNightDay, "ND", "ND ~ TIME + MON", F)
-  dtResults <- c(dtResults, intervalResult)
-  
-  if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-    bestResult <- intervalResult
-  }
-  
-  if(verbose) {
-    writeLines("")
-    writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-    writeLines(paste("Interval False Positive % for Decision Tree:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-    writeLines(paste("Interval False Negative % for Decision Tree:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  
-  if(checkAnn) {
-    intervalResult <- tenFold(subset(data, MON %in% c(12, 1, 2)), makeAnnNightDay, 0, start, testAnnModelNightDay, "ND", "ND ~ TIME + MON", F)
-    annResults <- c(annResults, intervalResult)
-    
-    if(averageTestResults(intervalResult, "error_rate") < averageTestResults(bestResult, "error_rate")) {
-      bestResult <- intervalResult
-    }
-    
-    if(verbose) {
-      writeLines("")
-      writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-      writeLines(paste("Interval False Positive % for ANN:", (averageTestResults(intervalResult, "false_positive") * 100), "%"))
-      writeLines(paste("Interval False Negative % for ANN:", (averageTestResults(intervalResult, "false_negative") * 100), "%"))
-      writeLines("-----------------------------------------------------------------------------------------------------------------")
-    }
-  }
-  
-  bestResults <- c(bestResults, bestResult)
-  
-  writeLines(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResults, "error_rate") * 100), "%"))
-  writeLines(paste("Average False Positive % for Naive Bayes:", (averageTestResults(nbResults, "false_positive") * 100), "%"))
-  writeLines(paste("Average False Negative % for Naive Bayes:", (averageTestResults(nbResults, "false_negative") * 100), "%"))
-  writeLines("")
-  writeLines(paste("Average Error Rate for Decision Tree:", (averageTestResults(dtResults, "error_rate") * 100), "%"))
-  writeLines(paste("Average False Positive % for Decision Tree:", (averageTestResults(dtResults, "false_positive") * 100), "%"))
-  writeLines(paste("Average False Negative % for Decision Tree:", (averageTestResults(dtResults, "false_negative") * 100), "%"))
-  if(checkAnn) {
-    writeLines("")
-    writeLines(paste("Average Error Rate for ANN:", (averageTestResults(annResults, "error_rate") * 100), "%"))
-    writeLines(paste("Average False Positive % for ANN:", (averageTestResults(annResults, "false_positive") * 100), "%"))
-    writeLines(paste("Average False Negative % for ANN:", (averageTestResults(annResults, "false_negative") * 100), "%"))
-  }
-  
-  writeLines("")
-  bestErrorRate <- averageTestResults(bestResults, "error_rate") * 100
-  writeLines(paste("Average Error Rate for Best:", bestErrorRate, "%"))
-  writeLines(paste("Average False Positive % for Best:", (averageTestResults(bestResults, "false_positive") * 100), "%"))
-  writeLines(paste("Average False Negative % for Best:", (averageTestResults(bestResults, "false_negative") * 100), "%"))
-  return(bestErrorRate)
-}
-
-testNightDayThreshold <- function(data, solrColName, maxThreshold, verbose=F, checkAnn=F) {
-  bestThreshold <- NULL
-  for(i in 1:maxThreshold) {
-    writeLines(paste("Threshold", i, ":"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-    testData <- convertNightDay(data=data, colName=solrColName, threshold=i)
-    result <- testNightDay(data=testData, intervalSize=12, verbose=verbose, checkAnn=checkAnn)
-    if(is.null(bestThreshold) || result$error_rate < bestThreshold$error_rate) {
-      bestThreshold <- list(threshold=i, error_rate=result$error_rate, combo=result$combo)
-    }
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  writeLines(paste("Best Threshold:", bestThreshold$threshold, "(", bestThreshold$error_rate, "% )"))
-  writeLines(paste("Models:", bestThreshold$combo))
-  return(bestThreshold)
-}
-
-testNightDayIntervals <- function(data, solrColName, verbose=F, checkAnn=F) {
-  intervals <- c(12, 6, 4, 3, 2, 1)
-  testData <- convertNightDay(data=data, colName=solrColName, threshold=1)
-  bestIntervalSize <- NULL
-  for(i in 1:length(intervals)) {
-    intervalSize <- intervals[i]
-    writeLines(paste("Interval Size", intervalSize, ":"))
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-    result <- testNightDay(data=testData, intervalSize=intervals[i], verbose=verbose, checkAnn=checkAnn)
-    if(is.null(bestIntervalSize) || result$error_rate < bestIntervalSize$error_rate) {
-      bestIntervalSize <- list(interval=intervals[i], error_rate=result$error_rate, combo=result$combo)
-    }
-    writeLines("-----------------------------------------------------------------------------------------------------------------")
-  }
-  writeLines(paste("Best Interval Size:", bestIntervalSize$interval, "(", bestIntervalSize$error_rate, "% )"))
-  writeLines(paste("Models:", bestIntervalSize$combo))
-  #   writeLines("Interval Season:")
-  #   writeLines("-----------------------------------------------------------------------------------------------------------------")
-  #   testNightDaySeason(data=testData, checkAnn=checkAnn, verbose=verbose)
-  #   writeLines("-----------------------------------------------------------------------------------------------------------------")
-  return(bestIntervalSize)
-}
-
-testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbose=F, checkNb=F, checkRandomForest=F, checkAnn=F, mean=0, filter=T) {
-  if(filter) {
-    testData <- data[!is.na(data[[colName]]) & data[[colName]] > 1,]
-  }
-  else {
-    testData <- data
-  }
-  
-  numIntervals <- ceiling(1440 / intervalSize)
-  
-  if(mean != 0) {
-    testData <- meanNormalize(data=testData, colName=colName, mean=mean)
-    colName <- paste(colName, "_NORM", sep="")
-    modelFunction <- paste(colName ,"~", strsplit(modelFunction, "~")[[1]][2], sep="")
-    testData["SOLR_D"] <- cut(testData[[colName]], numCuts)
-    classModelFunction <- paste("SOLR_D ~", strsplit(modelFunction, "~")[[1]][2], sep="")
-  }
-  else {
-    testData["SOLR_D"] <- cut(testData[[colName]], numCuts)
-    classModelFunction <- paste("SOLR_D ~", strsplit(modelFunction, "~")[[1]][2], sep="")
-  }
-  
-  
-  lmResults <- vector()
-  dtResults <- vector()
-  nbResults <- vector()
-  annResults <- vector()
-  rfResults <- vector()
-  bestResults <- vector()
-  bestCombo <- character(0)
-  bestRelResults <- vector()
-  bestRelCombo <- character(0)
-  
-  for(i in 1:numIntervals) {
-    start <- 1 + ((i - 1) * intervalSize)
-    end <- start + intervalSize - 1
-    if(verbose) {
-      writeLines(paste("Interval", start, "-", end,":"))
-      writeLines("--------------------------------------------------------------------")
-    }
-    
-    intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeLmSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
-    if(!is.null(intervalResult)) {
-      lmResults <- c(lmResults, intervalResult)
-    }
-    if(is.null(intervalResult)) {
-      bestResult <- NULL
-      bestModel <- "NULL"
-      bestRelResult <- NULL
-      bestRelModel <- "NULL"
-    }
-    else {
-      bestResult <- intervalResult
-      bestModel <- "Linear Regression"
-      bestRelResult <- intervalResult
-      bestRelModel <- "Linear Regression"
-    }
-    
-    if(verbose) {
-      writeLines(paste("Interval Error Rate for Linear Regression:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-      writeLines(paste("Interval Error Margin for Linear Regression:", (averageTestResults(intervalResult, "error_margin"))))
-      writeLines(paste("Interval Error Std Dev for Linear Regression:", (averageTestResults(intervalResult, "error_sd"))))
-      writeLines(paste("Interval Error Percentage for Linear Regression:", (averageTestResults(intervalResult, "error_percent") * 100), "%"))
-      writeLines("")
-    }
-    
-    intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeTreeSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
-    if(!is.null(intervalResult)) {
-      dtResults <- c(dtResults, intervalResult)
-    }
-    
-    if((is.null(bestResult) && !is.null(intervalResult)) || (!is.null(intervalResult) && averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin"))) {
-      bestResult <- intervalResult
-      bestModel <- "Decision Tree"
-    }
-    
-    if((is.null(bestRelResult) && !is.null(intervalResult)) || (!is.null(intervalResult) && averageTestResults(results=bestRelResult, column="error_percent") > averageTestResults(results=intervalResult, column="error_percent"))) {
-      bestRelResult <- intervalResult
-      bestRelModel <- "Decision Tree"
-    }
-    
-    if(verbose) {
-      writeLines(paste("Interval Error Rate for Decision Tree:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-      writeLines(paste("Interval Error Margin for Decision Tree:", (averageTestResults(intervalResult, "error_margin"))))
-      writeLines(paste("Interval Error Std Dev for Decision Tree:", (averageTestResults(intervalResult, "error_sd"))))
-      writeLines(paste("Interval Error Percentage for Decision Tree", (averageTestResults(intervalResult, "error_percent") * 100), "%"))
-      writeLines("")
-    }
-    
-    if(checkNb) {
-      intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeNbSolr, intervalSize, start, testClassModelSolr, "SOLR_D", classModelFunction, F)
-      nbResults <- c(nbResults, intervalResult)
-      
-      if((is.null(bestResult) && !is.null(intervalResult)) || (!is.null(intervalResult) && averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin"))) {
-        bestResult <- intervalResult
-        bestModel <- "Naive Bayes"
-      }
-      
-      if((is.null(bestRelResult) && !is.null(intervalResult)) || (!is.null(intervalResult) && averageTestResults(results=bestRelResult, column="error_percent") > averageTestResults(results=intervalResult, column="error_percent"))) {
-        bestRelResult <- intervalResult
-        bestRelModel <- "Naive Bayes"
-      }
-      
-      if(verbose) {
-        writeLines(paste("Interval Error Rate for Naive Bayes:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-        writeLines(paste("Interval Error Margin for Naive Bayes:", (averageTestResults(intervalResult, "error_margin"))))
-        writeLines(paste("Interval Error Std Dev for Naive Bayes:", (averageTestResults(intervalResult, "error_sd"))))
-        writeLines(paste("Interval Error Percentage for Naive Bayes:", (averageTestResults(intervalResult, "error_percent") * 100), "%"))
-      }
-    }
-    
-    if(checkAnn) {
-      intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeAnnSolr, intervalSize, start, testAnnModelSolr, "SOLR_D", classModelFunction, F)
-      annResults <- c(annResults, intervalResult)
-      
-      if((is.null(bestResult) && !is.null(intervalResult)) || (!is.null(intervalResult) && averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin"))) {
-        bestResult <- intervalResult
-        bestModel <- "ANN"
-      }
-      
-      if((is.null(bestRelResult) && !is.null(intervalResult)) || (!is.null(intervalResult) && averageTestResults(results=bestRelResult, column="error_percent") > averageTestResults(results=intervalResult, column="error_percent"))) {
-        bestRelResult <- intervalResult
-        bestRelModel <- "ANN"
-      }
-      
-      if(verbose) {
-        writeLines(paste("Interval Error Rate for ANN:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-        writeLines(paste("Interval Error Margin for ANN:", (averageTestResults(intervalResult, "error_margin"))))
-        writeLines(paste("Interval Error Std Dev for ANN:", (averageTestResults(intervalResult, "error_sd"))))
-        writeLines(paste("Interval Error Percentage for ANN:", (averageTestResults(intervalResult, "error_percent") * 100), "%"))
-      }
-    }
-    
-    if(checkRandomForest) {
-      intervalResult <- tenFold(subset(testData, TIME %in% start:end), makeRandomForestSolr, intervalSize, start, testVectorModelSolr, colName, modelFunction, F)
-      rfResults <- c(rfResults, intervalResult)
-      
-      if((is.null(bestResult) && !is.null(intervalResult)) || (!is.null(intervalResult) && averageTestResults(results=bestResult, column="error_margin") > averageTestResults(results=intervalResult, column="error_margin"))) {
-        bestResult <- intervalResult
-        bestModel <- "Random Forest"
-      }
-      
-      if((is.null(bestRelResult) && !is.null(intervalResult)) || (!is.null(intervalResult) && averageTestResults(results=bestRelResult, column="error_percent") > averageTestResults(results=intervalResult, column="error_percent"))) {
-        bestRelResult <- intervalResult
-        bestRelModel <- "Random Forest"
-      }
-      
-      if(verbose) {
-        writeLines(paste("Interval Error Rate for Random Forest:", (averageTestResults(intervalResult, "error_rate") * 100), "%"))
-        writeLines(paste("Interval Error Margin for Random Forest:", (averageTestResults(intervalResult, "error_margin"))))
-        writeLines(paste("Interval Error Std Dev for Random Forest:", (averageTestResults(intervalResult, "error_sd"))))
-        writeLines(paste("Interval Error Percentage for Random Forest:", (averageTestResults(intervalResult, "error_percent") * 100), "%"))
-      }
-    }
-    
-    bestResults <- c(bestResults, bestResult)
-    bestRelResults <- c(bestRelResults, bestRelResult)
-    bestCombo <- c(bestCombo, bestModel)
-    bestRelCombo <- c(bestRelCombo, bestRelModel)
-    
-    if(verbose) {
-      writeLines("--------------------------------------------------------------------")
-    }
-  }
-  
-  writeLines(paste("Average Error Rate for Linear Regression:", (averageTestResults(lmResults, "error_rate") * 100), "%"))
-  writeLines(paste("Average Error Margin for Linear Regression:", (averageTestResults(lmResults, "error_margin"))))
-  writeLines(paste("Average Error Std Dev for Linear Regression:", (averageTestResults(lmResults, "error_sd"))))
-  writeLines(paste("Average Error Percentage for Linear Regression:", (averageTestResults(lmResults, "error_percent") * 100), "%"))
-  writeLines("")
-  writeLines(paste("Average Error Rate for Decision Tree:", (averageTestResults(dtResults, "error_rate") * 100), "%"))
-  writeLines(paste("Average Error Margin for Decision Tree:", (averageTestResults(dtResults, "error_margin"))))
-  writeLines(paste("Average Error Std Dev for Decision Tree:", (averageTestResults(dtResults, "error_sd"))))
-  writeLines(paste("Average Error Percentage for Decision Tree:", (averageTestResults(dtResults, "error_percent") * 100), "%"))
-  if(checkNb) {
-    writeLines("")
-    writeLines(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResults, "error_rate") * 100), "%"))
-    writeLines(paste("Average Error Margin for Naive Bayes:", (averageTestResults(nbResults, "error_margin"))))
-    writeLines(paste("Average Error Std Dev for Naive Bayes:", (averageTestResults(nbResults, "error_sd"))))
-    writeLines(paste("Average Error Percentage for Naive Bayes:", (averageTestResults(nbResults, "error_percent") * 100), "%"))
-  }
-  
-  if(checkAnn) {
-    writeLines("")
-    writeLines(paste("Average Error Rate for ANN:", (averageTestResults(annResults, "error_rate") * 100), "%"))
-    writeLines(paste("Average Error Margin for ANN:", (averageTestResults(annResults, "error_margin"))))
-    writeLines(paste("Average Error Std Dev for ANN:", (averageTestResults(annResults, "error_sd"))))
-    writeLines(paste("Average Error Percentage for ANN:", (averageTestResults(annResults, "error_percent") * 100), "%"))
-  }
-  if(checkRandomForest) {
-    writeLines("")
-    writeLines(paste("Average Error Rate for Random Forest:", (averageTestResults(rfResults, "error_rate") * 100), "%"))
-    writeLines(paste("Average Error Margin for Random Forest:", (averageTestResults(rfResults, "error_margin"))))
-    writeLines(paste("Average Error Std Dev for Random Forest:", (averageTestResults(rfResults, "error_sd"))))
-    writeLines(paste("Average Error Percentage for Random Forest:", (averageTestResults(rfResults, "error_percent") * 100), "%"))
-  }
-  writeLines("")
-  writeLines(paste("Average Error Rate for Best:", (averageTestResults(bestResults, "error_rate") * 100), "%"))
-  bestErrorMargin <- averageTestResults(bestResults, "error_margin")
-  writeLines(paste("Average Error Margin for Best:", bestErrorMargin))
-  writeLines(paste("Average Error Std Dev for Best:", (averageTestResults(bestResults, "error_sd"))))
-  bestErrorPercent <- averageTestResults(bestResults, "error_percent") * 100
-  writeLines(paste("Average Error Percentage for Best:", bestErrorPercent, "%"))
-  bestComboString <- getCombo(bestCombo)
-  writeLines(paste("Best Combo:", bestComboString))
-  writeLines("")
-  writeLines(paste("Average Error Rate for Relative Best:", (averageTestResults(bestRelResults, "error_rate") * 100), "%"))
-  bestRelErrorMargin <- averageTestResults(bestRelResults, "error_margin")
-  writeLines(paste("Average Error Margin for Relative Best:", bestRelErrorMargin))
-  writeLines(paste("Average Error Std Dev for Relative Best:", (averageTestResults(bestRelResults, "error_sd"))))
-  bestRelErrorPercent <- averageTestResults(bestRelResults, "error_percent") * 100
-  writeLines(paste("Average Error Percentage for Relative Best:", bestRelErrorPercent, "%"))
-  bestRelComboString <- getCombo(bestRelCombo)
-  writeLines(paste("Relative Best Combo:", bestRelComboString))
-  
-  return(list(best_margin=list(error_margin=bestErrorMargin, error_percent=bestErrorPercent, combo=bestComboString), best_relative=list(error_margin=bestRelErrorMargin, error_percent=bestRelErrorPercent, combo=bestRelComboString)))
-}
-
+# Creates a string describing the combination of models in the given list.
+#
+# Parameters:
+#  -comboList = A list containing the models that yeilded the best results for each interval.
+#
+# Returns:
+#  -The string representation of the models.
 getCombo <- function(comboList) {
   numCombo <- length(comboList)
   comboString <- comboList[1]
@@ -1127,63 +369,15 @@ getCombo <- function(comboList) {
   return(comboString)
 }
 
-testSolrCuts <- function(data, colName, modelFunction, checkAnn=F, intervalSize=1440) {
-  testData <- data[!is.na(data[[colName]]) && data[[colName]] > 1,]
-  targetCuts <- c(100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000)
-  for(i in 1:length(targetCuts)) {
-    numCuts <- targetCuts[i]
-    writeLines(paste("Testing", numCuts,"cuts:"))
-    writeLines("-------------------------------------------------------------------")
-    testData["SOLR_D"] <- cut(testData[[colName]], numCuts)
-    classModelFunction <- paste("SOLR_D ~", strsplit(modelFunction, "~")[[1]][2], sep="")
-    nbResult <- tenFold(testData, makeNbSolr, intervalSize, 1, testClassModelSolr, "SOLR_D", classModelFunction, F)
-    writeLines(paste("Average Error Rate for Naive Bayes:", (averageTestResults(nbResult, "error_rate") * 100), "%"))
-    writeLines(paste("Average Error Margin for Naive Bayes:", (averageTestResults(nbResult, "error_margin"))))
-    writeLines(paste("Average Error Std Dev for Naive Bayes:", (averageTestResults(nbResult, "error_sd"))))
-    writeLines(paste("Average Error Percentage for Naive Bayes:", (averageTestResults(nbResult, "error_percent") * 100), "%"))
-    if(checkAnn) {
-      annResult <- tenFold(testData, makeAnnSolr, intervalSize, 1, testAnnModelSolr, "SOLR_D", classModelFunction, F)
-      writeLines("")
-      writeLines(paste("Average Error Rate for ANN:", (averageTestResults(annResult, "error_rate") * 100), "%"))
-      writeLines(paste("Average Error Margin for ANN:", (averageTestResults(annResult, "error_margin"))))
-      writeLines(paste("Average Error Std Dev for ANN:", (averageTestResults(annResult, "error_sd"))))
-      writeLines(paste("Average Error Percentage for ANN:", (averageTestResults(annResult, "error_percent") * 100), "%"))
-    }
-    writeLines("-------------------------------------------------------------------")
-  }
-}
-
-testSolrIntervals <- function(data, colName, modelFunction, checkNb=F, checkAnn=F, checkRandomForest=F, numCuts=1000, mean=0) {
-  intervals <- c(1440, 720, 480, 360, 240, 180, 120, 60)
-  bestIntervalMargin <- NULL
-  bestIntervalRelative <- NULL
-  for(i in 1:length(intervals)) {
-    intervalSize <- intervals[i]
-    writeLines(paste("Interval Size", intervalSize,":"))
-    writeLines("-------------------------------------------------------------------")
-    result = testSolr(data, intervalSize, colName, modelFunction, numCuts, checkNb = checkNb, checkAnn=checkAnn, checkRandomForest=checkRandomForest, mean=mean)
-    if(is.null(bestIntervalMargin) || bestIntervalMargin$error_margin > result$best_margin$error_margin) {
-      bestIntervalMargin <- list(interval=intervalSize, error_margin=result$best_margin$error_margin, error_percent=result$best_margin$error_percent, combo=result$best_margin$combo)
-    }
-    if(is.null(bestIntervalRelative) || bestIntervalRelative$error_percent > result$best_relative$error_percent) {
-      bestIntervalRelative <- list(interval=intervalSize, error_margin=result$best_relative$error_margin, error_percent=result$best_relative$error_percent, combo=result$best_relative$combo)
-    }
-    writeLines("-------------------------------------------------------------------")
-  }
-  writeLines("Best Margin:")
-  writeLines(paste("    Interval:", bestIntervalMargin$interval))
-  writeLines(paste("    Error Margin:", bestIntervalMargin$error_margin))
-  writeLines(paste("    Error Percent:", bestIntervalMargin$error_percent))
-  writeLines(paste("    Models:", bestIntervalMargin$combo))
-  writeLines("")
-  writeLines("Best Relative:")
-  writeLines(paste("    Interval:", bestIntervalRelative$interval))
-  writeLines(paste("    Error Margin:", bestIntervalRelative$error_margin))
-  writeLines(paste("    Error Percent:", bestIntervalRelative$error_percent))
-  writeLines(paste("    Models:", bestIntervalRelative$combo))
-  return(list(best_margin=bestIntervalMargin, best_relative=bestIntervalRelative))
-}
-
+# Merges the sourceFrame into the destFrame.
+#
+# Parameters:
+#  -destFrame   = The frame that the other data frame should be merged into.
+#  -sourceFrame = The frame to be merged.
+#  -sourceName  = The name of the source / station of the sourceFrame.
+#
+# Returns:
+#  -The merged data frames.
 mergeDataFrames <- function(destFrame, sourceFrame, sourceName) {
   ignoreList <- c("MON", "DT", "DT_NUM", "TIME", "SINT")
   start <- sourceFrame[["DT_NUM"]][1]
@@ -1224,6 +418,15 @@ averageFactor <- function(factor) {
   return((as.numeric(start) + as.numeric(end)) / 2)
 }
 
+# Normalizes the given column in the data frame by subtracting the mean.
+#
+# Parameters:
+#  -data    = The data frame to be normalized.
+#  -colName = The name of the column to be normalzied.
+#  -mean    = The mean value of the column.
+#
+# Returns:
+#  -The normalized data.
 meanNormalize <- function(data, colName, mean) {
   normalized <- vector(mode="numeric", length=nrow(data))
   for(i in 1:nrow(data)) {
@@ -1233,6 +436,15 @@ meanNormalize <- function(data, colName, mean) {
   return(data)
 }
 
+# Creates a model function for predicting the given column using all of the other columns.
+#
+# Parameters:
+#  -data       = The data frame containing the data that can be used to perform the prediction.
+#  -colName    = The name of the column to predict.
+#  -ignoreList = The names of the columns to be ignored.
+#
+# Returns:
+#  -The model function string.
 makeFullModelFunction <- function(data, colName, ignoreList=vector()) {
   functionString <- paste(colName, "~")
   first <- T
@@ -1250,6 +462,18 @@ makeFullModelFunction <- function(data, colName, ignoreList=vector()) {
   return(functionString)
 }
 
+# Creates a model function using the top attributes.
+#
+# Parameters:
+#  -data               = The data frame containing the data that can be used to perform the prediction.
+#  -colName            = The name of the column to predict.
+#  -topThreshold       = The number of attributes to select.
+#  -selectedMethod     = The correlation coefficient that will be used to rank the attributes.
+#  -ignoreList         = The names of the columns to be ignored.
+#  -correlationResults = A list of pre-computed correlation coefficients.
+#
+# Returns:
+#  -The model function string.
 makeTopFunction <- function(data, colName, topThreshold, selectedMethod="pearson", ignoreList=vector(), correlationResults=NULL) {
   first <- T
   results <- goodCorrelateTop(data=data, col=colName, topThreshold=topThreshold, selectedMethod=selectedMethod, results=correlationResults)[["names"]]
@@ -1268,6 +492,18 @@ makeTopFunction <- function(data, colName, topThreshold, selectedMethod="pearson
   return(functionString)
 }
 
+# Creates a model function using all attributes that have a correlation coefficient above a given threshold.
+#
+# Parameters:
+#  -data               = The data frame containing the data that can be used to perform the prediction.
+#  -colName            = The name of the column to predict.
+#  -threshold          = The lowest correlation coefficient that will be kept.
+#  -selectedMethod     = The correlation coefficient that will be used to rank the attributes.
+#  -ignoreList         = The names of the columns to be ignored.
+#  -correlationResults = A list of pre-computed correlation coefficients.
+#
+# Returns:
+#  -The model function string.
 makeThreshFunction <- function(data, colName, threshold, selectedMethod="pearson", ignoreList=vector(), correlationResults=NULL) {
   first <- T
   results <- goodCorrelateThresh(data=data, col=colName, threshold=threshold, selectedMethod=selectedMethod, results=correlationResults)[["names"]]
@@ -1286,6 +522,16 @@ makeThreshFunction <- function(data, colName, threshold, selectedMethod="pearson
   return(functionString)
 }
 
+# Generates the models for Night / Day prediction.
+#
+# Parameters:
+#  -comboString = The string describing the best model combination.
+#  -colName     = The name of the column to predict.
+#  -data        = The data used to train the models.
+#  -ndThreshold = The threshold between Night / Day (i.e. the minimum Day solar irradiance value.)
+#
+# Returns:
+#  -The Night / Day models.
 generateNDModels <- function(comboString, colName, data, ndThreshold=1) {
   modelFormula <- "ND ~ TIME + MON"
   models <- vector()
@@ -1315,6 +561,17 @@ generateNDModels <- function(comboString, colName, data, ndThreshold=1) {
   return(models)
 }
 
+# Generates the models for solar irradiance prediction.
+#
+# Parameters:
+#  -comboString  = The string describing the best model combination.
+#  -colName      = The name of the column to predict.
+#  -data         = The data used to train the models.
+#  -modelFormula = The model formula used to generate the models.
+#  -numCuts      = The number of cuts / classes to use for class-based models.
+#
+# Returns:
+#  -The solar irradiance models.
 generateSolrModels <- function(comboString, colName, data, modelFormula, numCuts=1000) {
   data <- data[!is.na(data[[colName]]) & data[[colName]] > 1,]
   models <- vector()
@@ -1352,6 +609,46 @@ generateSolrModels <- function(comboString, colName, data, modelFormula, numCuts
   return(models)
 }
 
+# Removes columns with too many NA / missing values.
+#
+# Parameters:
+#  -data   = The data frame to be filtered.
+#  -cutoff = The cutoff percentage for the number of NAs that can exist before it is removed.
+#            Ex.  A cutoff of 0.5 will remove a column with more than 50% NA values.
+#
+# Returns:
+#  -The data frame with the columns that contain too many NA values removed.
+filterColumns <- function(data, cutoff=0.5) {
+  colNames <- names(data)
+  for(i in 1:length(colNames)) {
+    numNA <- 0
+    numRows <- nrow(data)
+    for(j in 1:numRows) {
+      if(is.na(data[[colNames[i]]][j])) {
+        numNA <- numNA + 1
+        if(numNA / numRows > cutoff) {
+          writeLines(paste("Removing:", colNames[i]))#, paste("(",numNA," NAs)",sep="")))
+          data[[colNames[i]]] <- NULL
+          break
+        }
+      }
+    }
+  }
+  return(data)
+}
+
+# Creates the overall model (Night / Day and SOLR).
+#
+# Parameters:
+#  -target         = The station that the model would predict values for.
+#  -neighbors      = The other stations to pull data from.
+#  -offset         = The number of rows to offset (the number of previous rows to consider).
+#  -numFeatures    = The number of features to use in the prediction.
+#  -colName        = The name of the column to predict for in the original data frame.
+#  -selectedMethod = The name of the correlation coefficient method that will be used to rank the features.
+#
+# Returns:
+#  -The model.
 createModel <- function(target, neighbors, offset, numFeatures, colName="SOLR", selectedMethod="pearson") {
   targetData <- filterColumns(mergeCsv(target))
   neighborData <- list()
@@ -1379,6 +676,17 @@ createModel <- function(target, neighbors, offset, numFeatures, colName="SOLR", 
   
 }
 
+# Creates the overall model (Night / Day and SOLR).
+#
+# Parameters:
+#  -data           = The merged data frame to be used in training the model.
+#  -colName        = The name of the column to predict for in the original data frame.
+#  -modelFun       = The model function that will be used to generate the models.
+#  -numFeatures    = The number of features to use in the prediction.
+#  -selectedMethod = The name of the correlation coefficient method that will be used to rank the features.
+#
+# Returns:
+#  -The model.
 createModelNoLoad <- function(data, colName, modelFun=NULL, numFeatures=10, selectedMethod="pearson") {
   bestNightDay <- testNightDayIntervals(data=data, solrColName=colName, checkAnn=T)
   if(is.null(modelFun)) {
@@ -1389,10 +697,29 @@ createModelNoLoad <- function(data, colName, modelFun=NULL, numFeatures=10, sele
   return(createModelHelper(ndCombo=bestNightDay$combo, solrCombo=bestSolr$best_margin$combo, data=data, colName=colName, modelFun=modelFun))
 }
 
+# Creates and formats the model.
+#
+# Parameters:
+#  -ndCombo   = The string describing the best model combination for the Night / Day prediction.
+#  -solrCombo = The string describing the best model combination for the solar irradiance prediction.
+#  -data      = The training data.
+#  -colName   = The name of the column to predict.
+#  -modelFun  = The model function used to create the solar irradiance models.
+#
+# Returns:
+#  -The created model.
 createModelHelper <- function(ndCombo, solrCombo, data, colName, modelFun) {
   return(list(ndModel=generateNDModels(comboString=ndCombo, data=data, colName=colName, ndThreshold=2), solrModel=generateSolrModels(comboString=solrCombo, colName=colName, data=data, modelFormula=modelFun, numCuts=1000)))
 }
 
+# Predicts the next solar irradiance value for each of the rows in the given data set.
+#
+# Parameters:
+#  -model = The model to be used in the prediction.
+#  -data  = The data set containing the data that will be used for the prediction.
+#
+# Returns:
+#  -The predicted values.
 predictSolr <- function(model, data) {
   predictions <- vector(mode="numeric", length=nrow(data))
   for(i in 1:nrow(data)) {
@@ -1407,7 +734,14 @@ predictSolr <- function(model, data) {
   return(predictions)
 }
 
-
+# Predicts the next Night / Day value for each row in the given data set.
+#
+# Parameters:
+#  -model = The model to be used in the prediction.
+#  -data  = The data set containing the data that will be used for the prediction.
+#
+# Returns:
+#  -The predicted values.
 predictNightDay <- function(model, data) {
   month <- data$MON 
   
@@ -1419,6 +753,14 @@ predictNightDay <- function(model, data) {
   }
 }
 
+# Runs the second layer of the solar irradiance prediction for a row of data.
+#
+# Parameters:
+#  -model = The model to be used in the prediction.
+#  -data  = The data set containing the data that will be used for the prediction.
+#
+# Returns:
+#  -The predicted value.
 predictSolrHelper <- function(model, data) {
   time <- data$TIME[1]
 
@@ -1438,6 +780,15 @@ predictSolrHelper <- function(model, data) {
   }
 }
 
+# Tests the solar irradiance predictions.
+#
+# Parameters:
+#  -data     = The data to be used in the test (for training and validation).
+#  -colName  = The name of the column to predict.
+#  -modelFun = The model function used to generate the models.
+#
+# Returns:
+#  -Nothing.
 testPredictSolr <- function(data, colName, modelFun) {
   cutoff <- ceiling(nrow(data) * 0.75)
   
@@ -1463,71 +814,3 @@ testPredictSolr <- function(data, colName, modelFun) {
   writeLines(paste("Error Percent:", (errorMargin / actualSum * 100), "%"))
 }
 
-runParallel <- function(paramList, parallelFunction, collectFunction, debug=F) {
-  maxConcurrent <- length(paramList)
-  if(maxConcurrent > numCores) {
-    maxConcurrent <- numCores
-  }
-  
-  numJobs <- length(paramList)
-  
-  statusList <- vector(mode="list", length=numJobs)
-  
-  for(i in 1:numJobs) {
-    statusList[i]  <- list(list(started=F,returned=F, result=NULL, paramList=paramList[[i]]))
-  }
-  
-  nextIndex <- 1
-  for(i in 1:maxConcurrent) {
-    if(debug) {
-      writeLines(paste("Starting", nextIndex))
-    }
-    parallel(expr=parallelFunction(index=nextIndex, paramList=statusList[[nextIndex]]$paramList))
-    statusList[[nextIndex]]$started <- T
-    nextIndex <- nextIndex + 1
-  }
-  
-  numReturned <- 0
-  result <- NULL
-  
-  launchNew <- function(result){
-    numAvailable <- 0
-    
-    for(i in 1:length(result)) {
-      
-      if(is.null(result) || as.character(result[i]) != "NULL") {
-        index <- result[[i]]$index
-        
-        if(statusList[[index]]$returned == F) {
-          if(debug) {
-            writeLines(paste("Results for Index", index, "returned"))
-          }
-          statusList[[index]]$returned <<- T
-          statusList[[index]]$result <<- result[[i]]
-          numAvailable <- numAvailable + 1
-        }
-      }
-    }
-    if(debug) {
-      writeLines("------------------------------------------------------------");
-    }
-    
-    if(numAvailable > 0) {
-      for(i in 1:numAvailable) {
-        if(nextIndex <= numJobs) {
-          if(debug) {
-            writeLines(paste("Starting", as.character(nextIndex)))
-          }
-          parallel(expr=parallelFunction(index=nextIndex, paramList=statusList[[nextIndex]]$paramList))
-          statusList[[nextIndex]]$started <<- T
-          nextIndex <<- nextIndex + 1
-        }
-      }
-    }
-  }
-  
-  while(getNumReturned(statusList) < length(statusList)) {
-    collect(intermediate=launchNew)
-  }
-  return(collectFunction(statusList))
-}
