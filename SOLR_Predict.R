@@ -23,6 +23,33 @@ getCsv <- function() {
   return(csvFiles);
 }
 
+# Loads the data from the given CSV file.
+#
+# Parameter:
+#   -path = The path to the CSV file to be loaded.
+#
+# Returns:
+#   -The contents of the CSV file as a data frame.
+loadCsv <- function(path) {
+  writeLines(paste("Reading: ", path))
+  start <- proc.time()
+
+  data <- read.csv(path);
+
+  writeLines("Reading:")
+  print((proc.time() - start))
+  data[["DT"]] <- convertDate(data)
+  data[["DT_NUM"]] <- as.numeric(data[["DT"]])
+  data[["TIME"]] <- convertTime(data)
+  data$DAY <- NULL
+  data$YEAR <- NULL
+  data$HR <- NULL
+  data$MIN <- NULL
+  data$TMZN <- NULL
+  data <- data[order(data$DT_NUM, decreasing=F),]
+  return(data);
+}
+
 # Merges the data for all of the given CSV files.
 #
 # Parameter:
