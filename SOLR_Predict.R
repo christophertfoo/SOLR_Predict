@@ -76,6 +76,53 @@ filterData <-function(data, col) {
   return(data[data[[col]] > 0 & !is.na(data[[col]]),])
 }
 
+
+# Removes columns with too many NA / missing values.
+#
+# Parameters:
+#  -data   = The data frame to be filtered.
+#  -cutoff = The cutoff percentage for the number of NAs that can exist before it is removed.
+#            Ex.  A cutoff of 0.5 will remove a column with more than 50% NA values.
+#
+# Returns:
+#  -The data frame with the columns that contain too many NA values removed.
+filterColumns <- function(data, cutoff=0.5) {
+  colNames <- names(data)
+  for(i in 1:length(colNames)) {
+    numNA <- 0
+    numRows <- nrow(data)
+    for(j in 1:numRows) {
+      if(is.na(data[[colNames[i]]][j])) {
+        numNA <- numNA + 1
+        if(numNA / numRows > cutoff) {
+          writeLines(paste("Removing:", colNames[i]))#, paste("(",numNA," NAs)",sep="")))
+          data[[colNames[i]]] <- NULL
+          break
+        }
+      }
+    }
+  }
+  return(data)
+}
+
+# Normalizes the given column in the data frame by subtracting the mean.
+#
+# Parameters:
+#  -data    = The data frame to be normalized.
+#  -colName = The name of the column to be normalzied.
+#  -mean    = The mean value of the column.
+#
+# Returns:
+#  -The normalized data.
+meanNormalize <- function(data, colName, mean) {
+  normalized <- vector(mode="numeric", length=nrow(data))
+  for(i in 1:nrow(data)) {
+    normalized[i] <- data[[colName]][i] - mean
+  }
+  data[[paste(colName, "_NORM", sep="")]] <- normalized
+  return(data)
+}
+
 # Converts the date and time fields of the given data frame into a single numeric
 # value.
 #
@@ -144,6 +191,38 @@ convertNightDay <- function(data, colName, threshold) {
   }
   data[["ND"]] <- as.factor(nightDay)
   return(data)
+}
+
+# Merges the sourceFrame into the destFrame.
+#
+# Parameters:
+#  -destFrame   = The frame that the other data frame should be merged into.
+#  -sourceFrame = The frame to be merged.
+#  -sourceName  = The name of the source / station of the sourceFrame.
+#
+# Returns:
+#  -The merged data frames.
+mergeDataFrames <- function(destFrame, sourceFrame, sourceName) {
+  ignoreList <- c("MON", "DT", "DT_NUM", "TIME", "SINT")
+  start <- sourceFrame[["DT_NUM"]][1]
+  end <- sourceFrame[["DT_NUM"]][nrow(sourceFrame)]
+  inRange <- subset(destFrame, DT_NUM >= start & DT_NUM < end)
+  colNames <- names(sourceFrame)
+  for(i in 1:length(colNames)) {
+    if(!(colNames[i] %in% ignoreList)) {
+      inRange[[paste(sourceName,"_",colNames[i], sep="")]] <- approx(x=sourceFrame[["DT_NUM"]], y=sourceFrame[[colNames[i]]], xout=inRange[["DT_NUM"]])$y
+    }
+  }
+  return(inRange)
+}
+
+# Writes the given data frame to a CSV file.
+#
+# Parameters:
+#   -data = The data frame to write.
+#   -dest = The CSV file to write to.
+writeCsv <- function(data, dest) {
+  write.csv(data, dest, row.names=F, na="")
 }
 
 # Offsets a given column in the given data frame up the given number of rows and returns
@@ -369,38 +448,6 @@ getCombo <- function(comboList) {
   return(comboString)
 }
 
-# Merges the sourceFrame into the destFrame.
-#
-# Parameters:
-#  -destFrame   = The frame that the other data frame should be merged into.
-#  -sourceFrame = The frame to be merged.
-#  -sourceName  = The name of the source / station of the sourceFrame.
-#
-# Returns:
-#  -The merged data frames.
-mergeDataFrames <- function(destFrame, sourceFrame, sourceName) {
-  ignoreList <- c("MON", "DT", "DT_NUM", "TIME", "SINT")
-  start <- sourceFrame[["DT_NUM"]][1]
-  end <- sourceFrame[["DT_NUM"]][nrow(sourceFrame)]
-  inRange <- subset(destFrame, DT_NUM >= start & DT_NUM < end)
-  colNames <- names(sourceFrame)
-  for(i in 1:length(colNames)) {
-    if(!(colNames[i] %in% ignoreList)) {
-      inRange[[paste(sourceName,"_",colNames[i], sep="")]] <- approx(x=sourceFrame[["DT_NUM"]], y=sourceFrame[[colNames[i]]], xout=inRange[["DT_NUM"]])$y
-    }
-  }
-  return(inRange)
-}
-
-# Writes the given data frame to a CSV file.
-#
-# Parameters:
-#   -data = The data frame to write.
-#   -dest = The CSV file to write to.
-writeCsv <- function(data, dest) {
-  write.csv(data, dest, row.names=F, na="")
-}
-
 # Averages a factor representing the value range created by discretizing the data with the cut function.
 #
 # Parameters:
@@ -416,24 +463,6 @@ averageFactor <- function(factor) {
   start <- unlist(splitFactor[[1]])[1]
   end <- unlist(splitFactor[[1]])[2]
   return((as.numeric(start) + as.numeric(end)) / 2)
-}
-
-# Normalizes the given column in the data frame by subtracting the mean.
-#
-# Parameters:
-#  -data    = The data frame to be normalized.
-#  -colName = The name of the column to be normalzied.
-#  -mean    = The mean value of the column.
-#
-# Returns:
-#  -The normalized data.
-meanNormalize <- function(data, colName, mean) {
-  normalized <- vector(mode="numeric", length=nrow(data))
-  for(i in 1:nrow(data)) {
-    normalized[i] <- data[[colName]][i] - mean
-  }
-  data[[paste(colName, "_NORM", sep="")]] <- normalized
-  return(data)
 }
 
 # Creates a model function for predicting the given column using all of the other columns.
@@ -607,34 +636,6 @@ generateSolrModels <- function(comboString, colName, data, modelFormula, numCuts
     end = end + intervalSize
   }
   return(models)
-}
-
-# Removes columns with too many NA / missing values.
-#
-# Parameters:
-#  -data   = The data frame to be filtered.
-#  -cutoff = The cutoff percentage for the number of NAs that can exist before it is removed.
-#            Ex.  A cutoff of 0.5 will remove a column with more than 50% NA values.
-#
-# Returns:
-#  -The data frame with the columns that contain too many NA values removed.
-filterColumns <- function(data, cutoff=0.5) {
-  colNames <- names(data)
-  for(i in 1:length(colNames)) {
-    numNA <- 0
-    numRows <- nrow(data)
-    for(j in 1:numRows) {
-      if(is.na(data[[colNames[i]]][j])) {
-        numNA <- numNA + 1
-        if(numNA / numRows > cutoff) {
-          writeLines(paste("Removing:", colNames[i]))#, paste("(",numNA," NAs)",sep="")))
-          data[[colNames[i]]] <- NULL
-          break
-        }
-      }
-    }
-  }
-  return(data)
 }
 
 # Creates the overall model (Night / Day and SOLR).
