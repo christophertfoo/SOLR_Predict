@@ -4,3 +4,8 @@
 TODO
 *.Rproj
 *~
+*.RData
+Frac_Correlations
+Frac_Results
+Solr_Correlations
+Solr_Results

@@ -72,7 +72,43 @@ correlate <- function(col, data, selectedMethod="pearson", debug=F) {
     paramList[i] <- list(list(xCol = validCol[i], yCol = col, data = data[,names(data) %in% c(col, validCol[i])], selectedMethod = selectedMethod))
   }
   
-  return(runParallel(paramList=paramList, parallelFunction=runCorrelation, collectFunction=getCorrelationResults, debug=debug))
+  results <- runParallel(paramList=paramList, parallelFunction=runCorrelation, collectFunction=getCorrelationResults, debug=debug)
+  return(results[order(abs(results$correlations), decreasing=T),])
+}
+
+correlateNoMT <- function(col, data, selectedMethod="pearson", debug=F) {
+  nonNumbers <- c()
+  colNames <- names(data)
+  for(i in 1:length(colNames)) {
+    if(!is.numeric(data[,colNames[i]][0])) {
+      nonNumbers <- c(nonNumbers, colNames[i])
+    }
+  }
+  
+  numNonNum <- length(nonNumbers)
+  
+  if(numNonNum > 0) {
+    writeLines("Ignoring:")
+    for(i in 1:numNonNum){
+      writeLines(nonNumbers[i])
+    }
+  }
+  
+  validCol <- Filter(function(i){return(!(i %in% nonNumbers || i == col))}, names(data))
+  numCols <- length(validCol)
+  colNames <- character(0)
+  correlations <- numeric(0)
+  for(i in 1:numCols) {
+    col_data <- data[,names(data) %in% c(col, validCol[i])]
+    xCol <- validCol[i]
+    yCol <- col
+    correlation <- cor(col_data[[xCol]], col_data[[yCol]], use="pairwise.complete.obs", method=selectedMethod)
+
+    colNames <- c(colNames, xCol)
+    correlations <- c(correlations,correlation)
+  }
+  results <- data.frame(names=colNames, correlations=correlations)
+  return(results[order(abs(results$correlations), decreasing=T),])
 }
 
 # Finds the best columns (i.e. highest correlation coefficient) by taking all columns that have a coefficient above
@@ -157,4 +193,55 @@ logCorrelations <- function(col, data, filePrefix, getTop=F, numTop=5) {
   }
   sink()
   writeLines("Done")
+}
+
+writeCorrelationResult <- function(station, method, pentad, data) {
+  sink(paste(station, pentad, paste(method, "csv", sep="."), sep="_"))
+  pentad <- data[[as.character(pentad)]]
+  row <- NULL
+  for(i in 0:23) {
+    if(is.null(row)) {
+      row <- paste(paste("Feature-HR", i, sep=""), paste("Correlation-HR", i, sep=""),sep=",")
+    }
+    else {
+      row <- paste(row, paste("Feature-HR", i, sep=""), paste("Correlation-HR", i, sep=""),sep=",")
+    }
+  }
+  writeLines(row)
+  
+  maxRows <- NULL
+  for(i in 0:23) {
+    count <- nrow(pentad[[as.character(i)]])
+    if(!is.null(count)) {
+      if(is.null(maxRows) || count > maxRows) {
+        maxRows <- count
+      }
+    }
+  }
+  if(maxRows > 0) {    
+    for(i in 1:maxRows) {
+      row <- NULL
+      for(j in 0:23) {
+        result <- pentad[[as.character(j)]]
+        if(is.null(row)) {
+          if(is.null(result)) {
+            row <- ","
+          }
+          else {
+            row <- paste(result[i,"names"], result[i, "correlations"], sep=",")
+          }
+        }
+        else {
+          if(is.null(result)) {
+            row <- paste(row, ",", sep=",")
+          }
+          else {
+            row <- paste(row, result[i,"names"], result[i, "correlations"],sep=",")
+          }
+        }
+      }
+      writeLines(row)
+    }
+  }
+  sink()
 }

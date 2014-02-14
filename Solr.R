@@ -87,14 +87,18 @@ testContinuousModelSolr <- function(model, data, colName, verbose=F) {
   predictedVector <- predict(model, data)
   errors <- 0
   errorMargins <- numeric(0)
+  errorPercents <- numeric(0)
   actualSum <- 0
   for(i in 1:nrow(data)) {
     actual <- data[[colName]][i]
     predicted <- predictedVector[i]
     if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
       errors <- errors + 1
-      errorMargins <- c(errorMargins, abs(actual - predicted))
-      actualSum <- actualSum + abs(actual)
+      margin <- abs(actual - predicted)
+      errorMargins <- c(errorMargins, margin)
+      if(actual != 0) {
+        errorPercents <- c(errorPercents, margin / actual)
+      }
     }
   }
   if(verbose) {
@@ -108,11 +112,11 @@ testContinuousModelSolr <- function(model, data, colName, verbose=F) {
   }
   else {
     resultErrorMargin <- (sum(errorMargins) / errors)
-    resultErrorPercent <- (sum(errorMargins) / actualSum)
+    resultErrorPercent <- (sum(errorPercents) / errors) * 100
     resultErrorSd <- sd(errorMargins)
   }
   
-  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd))
+  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, actual=data[[colName]], predicted=predictedVector))
 }
 
 # Tests a discrete / class-based model for predicting the solar irradiance.

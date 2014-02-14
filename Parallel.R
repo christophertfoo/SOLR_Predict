@@ -1,4 +1,4 @@
-numCores <- multicore:::detectCores()
+numCores <- multicore:::detectCores() - 1
 
 # Find the number of function calls that have been started.
 #

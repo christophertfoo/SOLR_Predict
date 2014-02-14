@@ -9,6 +9,79 @@ source('Correlation.R')
 source('Night_Day.R')
 source('Solr.R')
 
+writeRawTestResults <- function(name, results, pentad, hour) {
+  if(!is.null(results[[as.character(pentad)]][[as.character(hour)]])) {
+    sink(name)
+    row <- "Actual,Predicted,Error,Error Percent"
+    writeLines(row)
+    years <- names(results[[as.character(pentad)]][[as.character(hour)]])   
+    num_years <- length(years)
+    for(j in 1:num_years) {
+      result <- results[[as.character(pentad)]][[as.character(hour)]][[years[j]]][["result"]]
+      num_predictions <- length(result$predicted)
+      for(k in 1:num_predictions) {
+        error <- abs(result$predicted[k] - result$actual[k])
+        writeLines(paste(result$actual[k], result$predicted[k], error, error / result$actual[k], sep=","))
+      }
+    }
+    sink()
+  }
+}
+
+writeTestResults <- function(name, results, pentad) {
+  sink(name)
+  row <- "Hour"
+  for(i in 0:23) {
+    row <- paste(row, i,sep=",")
+  }
+  writeLines(row)
+  
+  em_row <- "Error Margin"
+  stddev_row <- "Error Margin Std Dev"
+  ep_row <- "Error Percentage"
+  for(i in 0:23) {
+    if(is.null(results[[as.character(pentad)]][[as.character(i)]])) {
+      em_row <- paste(em_row, ",", sep="")
+      stddev_row <- paste(stddev_row, ",", sep="")
+      ep_row <- paste(ep_row, ",", sep="")
+    }
+    else {
+      years <- names(results[[as.character(pentad)]][[as.character(i)]])   
+      num_years <- length(years)
+      em <- 0
+      stddev <- 0
+      ep <- 0
+      count <- 0
+      for(j in 1:num_years) {
+        result <- results[[as.character(pentad)]][[as.character(i)]][[years[j]]][["result"]]
+        if(!is.null(result)) {
+          count <- count + 1
+          em <- em + result$error_margin
+          ep <- ep + result$error_percent
+          stddev <- stddev + result$error_sd
+        }
+      }
+      if(count > 0) {
+        em <- em / count
+        ep <- ep / count
+        stddev <- stddev / count
+        em_row <- paste(em_row, em, sep=",")
+        stddev_row <- paste(stddev_row, stddev, sep=",")
+        ep_row <- paste(ep_row, ep, sep=",")
+      }
+      else {
+        em_row <- paste(em_row, ",", sep="")
+        stddev_row <- paste(stddev_row, ",", sep="")
+        ep_row <- paste(ep_row, ",", sep="")
+      }
+    }
+  }
+  writeLines(em_row)
+  writeLines(stddev_row)
+  writeLines(ep_row)
+  sink()
+}
+
 # Gets the names of all CSV files in the current working directory.
 #
 # Returns:
@@ -41,11 +114,9 @@ loadCsv <- function(path) {
   data[["DT"]] <- convertDate(data)
   data[["DT_NUM"]] <- as.numeric(data[["DT"]])
   data[["TIME"]] <- convertTime(data)
-  data$DAY <- NULL
-  data$YEAR <- NULL
-  data$HR <- NULL
-  data$MIN <- NULL
   data$TMZN <- NULL
+  data$RELH_ERROR <- NULL
+  data$RELH_REL_ERROR <- NULL
   data <- data[order(data$DT_NUM, decreasing=F),]
   return(data);
 }
@@ -82,10 +153,6 @@ mergeCsv <- function(dataSource) {
   merged[["DT"]] <- convertDate(merged)
   merged[["DT_NUM"]] <- as.numeric(merged[["DT"]])
   merged[["TIME"]] <- convertTime(merged)
-  merged$DAY <- NULL
-  merged$YEAR <- NULL
-  merged$HR <- NULL
-  merged$MIN <- NULL
   merged$TMZN <- NULL
   merged <- merged[order(merged$DT_NUM, decreasing=F),]
   return(merged);
@@ -230,7 +297,7 @@ convertNightDay <- function(data, colName, threshold) {
 # Returns:
 #  -The merged data frames.
 mergeDataFrames <- function(destFrame, sourceFrame, sourceName) {
-  ignoreList <- c("MON", "DT", "DT_NUM", "TIME", "SINT")
+  ignoreList <- c("MON", "YEAR", "DT", "DT_NUM", "TIME", "SINT", "PENTAD", "DAY", "HR", "MIN", "RELH_ERROR", "RELH_REL_ERROR")
   start <- sourceFrame[["DT_NUM"]][1]
   end <- sourceFrame[["DT_NUM"]][nrow(sourceFrame)]
   inRange <- subset(destFrame, DT_NUM >= start & DT_NUM < end)
@@ -292,7 +359,7 @@ offsetCol <- function(numrows, col, data) {
 # Returns:
 #  -The offset data frame with the given column associated with the given number of previous rows.
 dataOffset <- function(numrows, col, data) {
-  ignoreList <- c("MON", "DT", "DT_NUM", "TIME")
+  ignoreList <- c("YEAR", "MON", "DAY", "HR", "MIN", "DT", "DT_NUM", "TIME")
   colNames <- names(data)
   
   # Offset other columns numrows - 1 times
@@ -305,13 +372,20 @@ dataOffset <- function(numrows, col, data) {
   }
   
   # Set the invariant columns (i.e. date / time)
+  data[["YEAR"]] <- offsetCol(numrows, "YEAR", data)
   data[["MON"]] <- offsetCol(numrows, "MON", data)
+  data[["DAY"]] <- offsetCol(numrows, "DAY", data)
+  data[["HR"]] <- offsetCol(numrows, "HR", data)
+  data[["MIN"]] <- offsetCol(numrows, "MIN", data)
   data[["DT"]] <- offsetCol(numrows, "DT", data)
   data[["DT_NUM"]] <- offsetCol(numrows, "DT_NUM", data)
   data[["TIME"]] <- offsetCol(numrows, "TIME", data)
   
   # Offset the specified column numrows times
-  data[[paste(col,"_",numrows,sep="")]] <- offsetCol(numrows, col,data)
+  data[[paste(col,"_",numrows,sep="")]] <- offsetCol(numrows, col, data)
+  if(col == "SOLR_FRAC") {
+    data[[paste("SOLR_MAX_",numrows,sep="")]] <- offsetCol(numrows, "SOLR_MAX", data)
+  }
   
   # Truncate and sort the data frame
   data <- data[1:(nrow(data)-numrows),]
@@ -533,15 +607,15 @@ makeFullModelFunction <- function(data, colName, ignoreList=vector()) {
 makeTopFunction <- function(data, colName, topThreshold, selectedMethod="pearson", ignoreList=vector(), correlationResults=NULL) {
   first <- T
   results <- goodCorrelateTop(data=data, col=colName, topThreshold=topThreshold, selectedMethod=selectedMethod, results=correlationResults)[["names"]]
-  functionString <- paste(colName, "~")
+  functionString <- paste("`", colName, "`", " ~ ", sep="")
   for(i in results) {
     if(i != colName && i != "DT" && !(i %in% ignoreList)) {
       if(first) {
-        functionString <- paste(functionString, as.character(i))
+        functionString <- paste(" ", functionString, "`", as.character(i), "`", sep="")
         first <- F
       }
       else {
-        functionString <- paste(functionString, "+", as.character(i))
+        functionString <- paste(functionString, " + ", "`", as.character(i), "`", sep="")
       }
     }
   }
