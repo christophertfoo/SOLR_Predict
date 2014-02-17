@@ -1,5 +1,15 @@
 source('SOLR_Predict.R')
 
+if(!exists("offset_solr_frac")) {
+  if(file.exists("Data.RData")) {
+    writeLines("Loading Data.RData")
+    load("Data.RData")
+  }
+  else {
+    source("Load_Data.R")
+  }
+}
+
 if(!exists("P_Solr") || !exists("S_Solr") || !exists("K_Solr")) {
   if(file.exists("Frac_Correlations.RData")) {
     writeLines("Loading Frac_Correlations.RData")
