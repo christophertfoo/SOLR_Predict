@@ -14,14 +14,20 @@ if(!exists("offset_solr")) {
 
 writeLines("Calculating Solr Correlations")
 
+num_pentads <- 6
+num_groups <- ceiling(73 / num_pentads)
+
 P_Solr <- list()
 K_Solr <- list()
 S_Solr <- list()
 
-for(pentad in 1:73) {
+for(pentad in 1:num_groups) {
+  
+  start <- 1 + (pentad - 1) * num_pentads  
+  
   for(hour in 0:23) {
     writeLines(paste("Pentad:", pentad, "- Hour:", hour))
-    data <- offset_solr[offset_solr$PENTAD == pentad & offset_solr$HR == hour,]
+    data <- offset_solr[offset_solr$PENTAD >= start & offset_solr$PENTAD <= (start + num_pentads - 1) & offset_solr$HR == hour,]
     writeLines(paste("# valid rows:", as.character(nrow(data[data$SOLR_6 > 0,]))))
     if(nrow(data[data$SOLR_6 > 0,]) > 0) {    
       writeLines("  Pearson")
@@ -47,21 +53,21 @@ setwd("Solr_Correlations")
 
 dir.create("P")
 setwd("P")
-for(pentad in 1:73) {
+for(pentad in 1:num_groups) {
   writeCorrelationResult("SCBH1_Solr", "P", pentad, P_Solr)
 }
 setwd("..")
 
 dir.create("S")
 setwd("S")
-for(pentad in 1:73) {
+for(pentad in 1:num_groups) {
   writeCorrelationResult("SCBH1_Solr", "S", pentad, S_Solr)
 }
 setwd("..")
 
 dir.create("K")
 setwd("K")
-for(pentad in 1:73) {
+for(pentad in 1:num_groups) {
   writeCorrelationResult("SCBH1_Solr", "K", pentad, K_Solr)
 }
 setwd("..")

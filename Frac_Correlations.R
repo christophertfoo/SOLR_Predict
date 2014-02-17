@@ -14,14 +14,20 @@ if(!exists("offset_solr_frac")) {
 
 writeLines("Calculating Fraction Correlations")
 
+num_pentads <- 6
+num_groups <- ceiling(73 / num_pentads)
+
 P_Frac <- list()
 K_Frac <- list()
 S_Frac <- list()
 
-for(pentad in 17:73) {
+for(pentad in 1:num_groups) {
+  
+  start <- 1 + (pentad - 1) * num_pentads
+  
   for(hour in 0:23) {
     writeLines(paste("Pentad:", pentad, "- Hour:", hour))
-    data <- offset_solr_frac[offset_solr_frac$PENTAD == pentad & offset_solr_frac$HR == hour,]
+    data <- offset_solr_frac[offset_solr_frac$PENTAD >= start & offset_solr_frac$PENTAD <= (start + num_pentads - 1) & offset_solr_frac$HR == hour,]
     writeLines(paste("# valid rows:", as.character(nrow(data[data$SOLR_FRAC_6 > 0,]))))
     if(nrow(data[data$SOLR_FRAC_6 > 0,]) > 0) {    
       writeLines("  Pearson")
@@ -47,21 +53,21 @@ setwd("Frac_Correlations")
 
 dir.create("P")
 setwd("P")
-for(pentad in 1:73) {
+for(pentad in 1:num_groups) {
   writeCorrelationResult("SCBH1_Frac", "P", pentad, P_Frac)
 }
 setwd("..")
 
 dir.create("S")
 setwd("S")
-for(pentad in 1:73) {
+for(pentad in 1:num_groups) {
   writeCorrelationResult("SCBH1_Frac", "S", pentad, S_Frac)
 }
 setwd("..")
 
 dir.create("K")
 setwd("K")
-for(pentad in 1:73) {
+for(pentad in 1:num_groups) {
   writeCorrelationResult("SCBH1_Frac", "K", pentad, K_Frac)
 }
 setwd("..")
