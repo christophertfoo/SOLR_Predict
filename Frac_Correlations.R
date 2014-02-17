@@ -45,7 +45,7 @@ for(pentad in 1:num_groups) {
   }
 }
 
-save(P_Solr, S_Solr, K_Solr, file="Frac_Correlations.RData")
+save(P_Frac, S_Frac, K_Frac, file="Frac_Correlations.RData")
 
 return_dir <- getwd()
 dir.create("Frac_Correlations")

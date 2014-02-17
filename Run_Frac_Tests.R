@@ -10,7 +10,7 @@ if(!exists("offset_solr_frac")) {
   }
 }
 
-if(!exists("P_Solr") || !exists("S_Solr") || !exists("K_Solr")) {
+if(!exists("P_Frac") || !exists("S_Frac") || !exists("K_Frac")) {
   if(file.exists("Frac_Correlations.RData")) {
     writeLines("Loading Frac_Correlations.RData")
     load("Frac_Correlations.RData")
