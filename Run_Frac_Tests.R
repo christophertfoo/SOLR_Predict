@@ -1,6 +1,6 @@
 source('SOLR_Predict.R')
 
-if(is.null(P_Solr) || is.null(S_Solr) || is.null(K_Solr)) {
+if(!exists("P_Solr") || !exists("S_Solr") || !exists("K_Solr")) {
   if(file.exists("Frac_Correlations.RData")) {
     writeLines("Loading Frac_Correlations.RData")
     load("Frac_Correlations.RData")
@@ -10,7 +10,9 @@ if(is.null(P_Solr) || is.null(S_Solr) || is.null(K_Solr)) {
   }
 }
 
-feature_counts <- c(40, 35, 30, 25, 20, 15, 10, 5)
+feature_counts <- c(30)
+num_pentads <- 6
+num_groups <- ceiling(73 / num_pentads)
 
 for(num_features in feature_counts) {
   # Test Fraction
@@ -22,10 +24,11 @@ for(num_features in feature_counts) {
   for(test_year in 2010:2013) {
     test <- offset_solr_frac[offset_solr_frac$YEAR == test_year,]
     training <- offset_solr_frac[offset_solr_frac$YEAR != test_year,]
-    for(pentad in 1:73) {
+    for(pentad in 1:num_groups) {
+      start <- 1 + (pentad - 1) * num_pentads
       for(hour in 0:23) {
-        training_data <- training[training$PENTAD == pentad & training$HR == hour,]
-        test_data <- test[test$PENTAD == pentad & test$HR == hour,]
+        training_data <- training[training$PENTAD >= (start) & training$PENTAD <= (start + num_pentads - 1) & training$HR == hour,]
+        test_data <- test[test$PENTAD >= (start) & test$PENTAD <= (start + num_pentads - 1) & test$HR == hour,]
         writeLines(paste("# of Features - ", num_features," Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
         if(!is.null(P_Frac[[as.character(pentad)]][[as.character(hour)]])) {
           writeLines("  P")
@@ -82,7 +85,7 @@ for(num_features in feature_counts) {
   setwd("P")
   dir.create("Averaged")
   setwd("Averaged")
-  for(i in 1:73) {
+  for(i in 1:num_groups) {
     writeTestResults(name=paste("SCBH1_", num_features,"_P_Frac_", i, "_Results.csv", sep=""), results=SCBH1_P_Frac, pentad=i)
   }
   
@@ -90,7 +93,7 @@ for(num_features in feature_counts) {
   dir.create("Raw")
   setwd("Raw")
   
-  for(i in 1:73) {
+  for(i in 1:num_groups) {
     pentad_dir <- paste("Pentad_", i, sep="")
     dir.create(pentad_dir)
     setwd(pentad_dir)
@@ -105,7 +108,7 @@ for(num_features in feature_counts) {
   setwd("S")
   dir.create("Averaged")
   setwd("Averaged")
-  for(i in 1:73) {
+  for(i in 1:num_groups) {
     writeTestResults(name=paste("SCBH1_", num_features,"_S_Frac_", i, "_Results.csv", sep=""), results=SCBH1_S_Frac, pentad=i)
   }
   
@@ -113,7 +116,7 @@ for(num_features in feature_counts) {
   dir.create("Raw")
   setwd("Raw")
   
-  for(i in 1:73) {
+  for(i in 1:num_groups) {
     pentad_dir <- paste("Pentad_", i, sep="")
     dir.create(pentad_dir)
     setwd(pentad_dir)
@@ -128,7 +131,7 @@ for(num_features in feature_counts) {
   setwd("K")
   dir.create("Averaged")
   setwd("Averaged")
-  for(i in 1:73) {
+  for(i in 1:num_groups) {
     writeTestResults(name=paste("SCBH1_", num_features,"_K_Frac_", i, "_Results.csv", sep=""), results=SCBH1_K_Frac, pentad=i)
   }
   
@@ -136,7 +139,7 @@ for(num_features in feature_counts) {
   dir.create("Raw")
   setwd("Raw")
   
-  for(i in 1:73) {
+  for(i in 1:num_groups) {
     pentad_dir <- paste("Pentad_", i, sep="")
     dir.create(pentad_dir)
     setwd(pentad_dir)

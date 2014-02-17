@@ -1,6 +1,6 @@
 source('SOLR_Predict.R')
 
-if(is.null(offset_solr_frac)) {
+if(!exists("offset_solr_frac")) {
   if(file.exists("Data.RData")) {
     writeLines("Loading Data.RData")
     load("Data.RData")
