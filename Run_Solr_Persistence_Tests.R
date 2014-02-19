@@ -52,7 +52,7 @@ setwd(as.character(num_features))
 dir.create("Averaged")
 setwd("Averaged")
 for(i in 1:num_groups) {
-  writeTestResults(name=paste("SCBH1_", num_features,"_Persistence_Solr_", i, "_Results.csv", sep=""), results=SCBH1_Results_Solr, pentad=i)
+  writeTestResults(name=paste("SCBH1_Persistence_Solr_", i, "_Results.csv", sep=""), results=SCBH1_Results_Solr, pentad=i)
 }
 
 setwd("..")
