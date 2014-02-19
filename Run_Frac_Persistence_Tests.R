@@ -44,8 +44,8 @@ for(test_year in 2010:2013) {
 }
 
 return_dir <- getwd()
-dir.create("Solr_Persistence_Results")
-setwd("Solr_Persistence_Results")
+dir.create("Frac_Persistence_Results")
+setwd("Frac_Persistence_Results")
 
 dir.create("Averaged")
 setwd("Averaged")
