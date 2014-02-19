@@ -8,6 +8,8 @@ if(!exists("offset_solr_frac")) {
   }
 }
 
+source('SOLR_Predict.R')
+
 num_pentads <- 12
 num_groups <- ceiling(73 / num_pentads)
 num_past <- 1
