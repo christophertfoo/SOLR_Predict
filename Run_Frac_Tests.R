@@ -1,5 +1,3 @@
-source('SOLR_Predict.R')
-
 if(!exists("offset_solr_frac")) {
   if(file.exists("Data.RData")) {
     writeLines("Loading Data.RData")
@@ -19,6 +17,8 @@ if(!exists("P_Frac") || !exists("S_Frac") || !exists("K_Frac")) {
     source("Frac_Correlations.R")
   }
 }
+
+source('SOLR_Predict.R')
 
 feature_counts <- c(5, 10, 20, 30, 40, 50)
 num_pentads <- 12

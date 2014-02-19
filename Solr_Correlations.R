@@ -1,5 +1,3 @@
-source('SOLR_Predict.R')
-
 if(!exists("offset_solr")) {
   if(file.exists("Data.RData")) {
     writeLines("Loading Data.RData")
@@ -9,6 +7,8 @@ if(!exists("offset_solr")) {
     source("Load_Data.R")
   }
 }
+
+source('SOLR_Predict.R')
 
 # Get SOLR correlations
 

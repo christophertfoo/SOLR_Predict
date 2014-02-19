@@ -304,6 +304,21 @@ writeCsv <- function(data, dest) {
   write.csv(data, dest, row.names=F, na="")
 }
 
+offsetDay <- function(numdays, col, data) {
+  newCol <- list()
+  for(i in 1:nrow(data)) {
+    offset <- data[data$DT == (data[["DT"]][i] - (3600 * 24)), col]
+    if(length(offset) == 0) {
+      newCol <- c(newCol, NA)
+    }
+    else {
+      newCol <- c(newCol, offset)
+    }
+  }
+  data[[paste(col,"_DAY_", numdays, sep="")]] <- newCol
+  return(data)
+}
+
 # Offsets a given column in the given data frame up the given number of rows and returns
 # the offset column.
 #
