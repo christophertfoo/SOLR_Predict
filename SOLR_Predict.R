@@ -30,20 +30,12 @@ writeRawTestResults <- function(name, results, pentad, hour) {
 
 writeTestResults <- function(name, results, pentad) {
   sink(name)
-  row <- "Hour"
-  for(i in 0:23) {
-    row <- paste(row, i,sep=",")
-  }
+  row <- "Hour, Error Margin, Error Margin Std Dev, Error Percentage"
   writeLines(row)
   
-  em_row <- "Error Margin"
-  stddev_row <- "Error Margin Std Dev"
-  ep_row <- "Error Percentage"
   for(i in 0:23) {
     if(is.null(results[[as.character(pentad)]][[as.character(i)]])) {
-      em_row <- paste(em_row, ",", sep="")
-      stddev_row <- paste(stddev_row, ",", sep="")
-      ep_row <- paste(ep_row, ",", sep="")
+      writeLines(paste(i, ",,,"))
     }
     else {
       years <- names(results[[as.character(pentad)]][[as.character(i)]])   
@@ -65,20 +57,13 @@ writeTestResults <- function(name, results, pentad) {
         em <- em / count
         ep <- ep / count
         stddev <- stddev / count
-        em_row <- paste(em_row, em, sep=",")
-        stddev_row <- paste(stddev_row, stddev, sep=",")
-        ep_row <- paste(ep_row, ep, sep=",")
+        writeLines(paste(i, em, stddev, ep, sep=","))
       }
       else {
-        em_row <- paste(em_row, ",", sep="")
-        stddev_row <- paste(stddev_row, ",", sep="")
-        ep_row <- paste(ep_row, ",", sep="")
+        writeLines(paste(i, ",,,"))
       }
     }
   }
-  writeLines(em_row)
-  writeLines(stddev_row)
-  writeLines(ep_row)
   sink()
 }
 
