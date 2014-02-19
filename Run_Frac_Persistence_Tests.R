@@ -46,8 +46,6 @@ for(test_year in 2010:2013) {
 return_dir <- getwd()
 dir.create("Solr_Persistence_Results")
 setwd("Solr_Persistence_Results")
-dir.create(as.character(num_features))
-setwd(as.character(num_features))
 
 dir.create("Averaged")
 setwd("Averaged")
@@ -64,7 +62,7 @@ for(i in 1:num_groups) {
   dir.create(pentad_dir)
   setwd(pentad_dir)
   for(j in 0:23) {
-    writeRawTestResults(name=paste("SCBH1_", num_features,"_Persistence_Frac_", i, "_", j, "_Raw_Results.csv", sep=""), results=SCBH1_Results_Frac, pentad=i, hour=j)
+    writeRawTestResults(name=paste("SCBH1_Persistence_Frac_", i, "_", j, "_Raw_Results.csv", sep=""), results=SCBH1_Results_Frac, pentad=i, hour=j)
   }
   setwd("..")
 }

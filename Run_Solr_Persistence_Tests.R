@@ -46,13 +46,11 @@ for(test_year in 2010:2013) {
 return_dir <- getwd()
 dir.create("Solr_Persistence_Results")
 setwd("Solr_Persistence_Results")
-dir.create(as.character(num_features))
-setwd(as.character(num_features))
 
 dir.create("Averaged")
 setwd("Averaged")
 for(i in 1:num_groups) {
-  writeTestResults(name=paste("SCBH1_", num_features,"_Persistence_Solr_", i, "_Results.csv", sep=""), results=SCBH1_Results_Solr, pentad=i)
+  writeTestResults(name=paste("SCBH1_Persistence_Solr_", i, "_Results.csv", sep=""), results=SCBH1_Results_Solr, pentad=i)
 }
 
 setwd("..")
