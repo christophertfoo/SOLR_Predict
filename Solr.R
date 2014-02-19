@@ -116,7 +116,7 @@ testContinuousModelSolr <- function(model, data, colName, verbose=F) {
     resultErrorSd <- sd(errorMargins)
   }
   
-  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, actual=data[[colName]], predicted=predictedVector))
+  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, time=data[["DT"]],actual=data[[colName]], predicted=predictedVector))
 }
 
 # Tests a discrete / class-based model for predicting the solar irradiance.
@@ -168,13 +168,13 @@ testClassModelSolrHelper <- function(model, predictedClasses, data, colName, ver
   for(i in 1:nrow(data)) {
     actual <- averageFactor(data[[colName]][i])
     predicted <- averageFactor(predictedClasses[i])
-    if(is.na(actual) || is.na(predicted)) {
-      #print("NA")
-    }
     if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
       errors <- errors + 1
-      errorMargins <- c(errorMargins, abs(actual - predicted))
-      actualSum <- actualSum + abs(actual)
+      margin <- abs(actual - predicted)
+      errorMargins <- c(errorMargins, margin)
+      if(actual != 0) {
+        errorPercents <- c(errorPercents, margin / actual)
+      }
     }
   }
   if(verbose) {
@@ -188,11 +188,11 @@ testClassModelSolrHelper <- function(model, predictedClasses, data, colName, ver
   }
   else {
     resultErrorMargin <- (sum(errorMargins) / errors)
-    resultErrorPercent <- (sum(errorMargins) / actualSum)
+    resultErrorPercent <- (sum(errorPercents) / errors) * 100
     resultErrorSd <- sd(errorMargins)
   }
   
-  return(list(error_rate=(errors / nrow(data)), error_margin= resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd))
+  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, time=data[["DT"]],actual=data[[colName]], predicted=predictedVector))
 }
 
 # Tests the various models for predicting the solar irradiance values and finds the best combinations of models.

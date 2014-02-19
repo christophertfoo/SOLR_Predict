@@ -12,7 +12,7 @@ source('Solr.R')
 writeRawTestResults <- function(name, results, pentad, hour) {
   if(!is.null(results[[as.character(pentad)]][[as.character(hour)]])) {
     sink(name)
-    row <- "Actual,Predicted,Error,Error Percent"
+    row <- "Time,Actual,Predicted,Error,Error Percent"
     writeLines(row)
     years <- names(results[[as.character(pentad)]][[as.character(hour)]])   
     num_years <- length(years)
@@ -21,7 +21,7 @@ writeRawTestResults <- function(name, results, pentad, hour) {
       num_predictions <- length(result$predicted)
       for(k in 1:num_predictions) {
         error <- abs(result$predicted[k] - result$actual[k])
-        writeLines(paste(result$actual[k], result$predicted[k], error, error / result$actual[k], sep=","))
+        writeLines(paste(result$time[k], result$actual[k], result$predicted[k], error, error / result$actual[k], sep=","))
       }
     }
     sink()

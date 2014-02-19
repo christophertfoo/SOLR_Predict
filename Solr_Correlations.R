@@ -14,7 +14,7 @@ if(!exists("offset_solr")) {
 
 writeLines("Calculating Solr Correlations")
 
-num_pentads <- 6
+num_pentads <- 12
 num_groups <- ceiling(73 / num_pentads)
 
 P_Solr <- list()

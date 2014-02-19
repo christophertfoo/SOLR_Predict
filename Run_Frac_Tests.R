@@ -20,8 +20,8 @@ if(!exists("P_Frac") || !exists("S_Frac") || !exists("K_Frac")) {
   }
 }
 
-feature_counts <- c(30)
-num_pentads <- 6
+feature_counts <- c(5, 10, 20, 30, 40, 50)
+num_pentads <- 12
 num_groups <- ceiling(73 / num_pentads)
 
 for(num_features in feature_counts) {
