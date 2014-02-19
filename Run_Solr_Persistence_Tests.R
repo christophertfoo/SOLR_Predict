@@ -24,7 +24,7 @@ for(test_year in 2010:2013) {
   for(pentad in 1:num_groups) {
     start <- 1 + (pentad - 1) * num_pentads
     for(hour in 0:23) {
-      writeLines(paste("# of Features - ", num_features," Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
+      writeLines(paste("Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
       training_data <- training[training$PENTAD >= (start) & training$PENTAD <= (start + num_pentads - 1) & training$HR == hour,]
       test_data <- test[test$PENTAD >= (start) & test$PENTAD <= (start + num_pentads - 1) & test$HR == hour,]
       if(nrow(training[training$SOLR_6 > 0,]) > 0) {
