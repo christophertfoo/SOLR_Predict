@@ -8,7 +8,7 @@ if(!exists("offset_days")) {
     load("DaysOffset.RDta")
   }
   else {
-    if(!exists("offset_solr")) {
+    if(!exists("merged")) {
       if(file.exists("Data.RData")) {
         writeLines("Loading Data.RData")
         load("Data.RData")
@@ -54,8 +54,8 @@ for(num_pentads in merge_groups) {
     SCBH1_Results_Solr <- list()
     
     for(test_year in 2010:2013) {
-      test <- offset_solr[offset_solr$YEAR == test_year,]
-      training <- offset_solr[offset_solr$YEAR != test_year,]
+      test <- offset_days[offset_days$YEAR == test_year,]
+      training <- offset_days[offset_days$YEAR != test_year,]
       for(pentad in 1:num_groups) {
         start <- 1 + (pentad - 1) * num_pentads
         for(hour in 0:23) {
