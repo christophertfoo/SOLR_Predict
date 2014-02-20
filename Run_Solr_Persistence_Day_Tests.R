@@ -5,7 +5,7 @@ max_num_past <- 1
 
 if(!exists("offset_days")) {
   if(file.exists("DaysOffset.RData")) {
-    load("DaysOffset.RDta")
+    load("DaysOffset.RData")
   }
   else {
     if(!exists("merged")) {
@@ -62,7 +62,7 @@ for(num_pentads in merge_groups) {
           writeLines(paste("Num Merged - ", num_pentads, " Num Past - ", num_past," Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
           training_data <- training[training$PENTAD >= (start) & training$PENTAD <= (start + num_pentads - 1) & training$HR == hour,]
           test_data <- test[test$PENTAD >= (start) & test$PENTAD <= (start + num_pentads - 1) & test$HR == hour,]
-          if(nrow(training[training$SOLR_6 > 0,]) > 0) {
+          if(nrow(training[training$SOLR > 0,]) > 0) {
             if(is.null(SCBH1_Results_Solr[[as.character(pentad)]][[as.character(hour)]])) {
               SCBH1_Results_Solr[[as.character(pentad)]][[as.character(hour)]] <- list()          
             }

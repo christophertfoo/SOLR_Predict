@@ -313,7 +313,7 @@ offsetDay <- function(numdays, col, data) {
       newCol <- c(newCol, NA)
     }
     else {
-      newCol <- c(newCol, offset)
+      newCol <- c(newCol, offset[1])
     }
   }
   data[[paste(col,"_DAY_", numdays, sep="")]] <- newCol
