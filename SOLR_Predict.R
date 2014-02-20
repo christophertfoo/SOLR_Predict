@@ -1,10 +1,10 @@
-library("multicore")
+#library("multicore")
 library("e1071")
 library("rpart")
 library("nnet")
 library('randomForest')
 
-source('Parallel.R')
+#source('Parallel.R')
 source('Correlation.R')
 source('Night_Day.R')
 source('Solr.R')
@@ -307,6 +307,7 @@ writeCsv <- function(data, dest) {
 offsetDay <- function(numdays, col, data) {
   newCol <- list()
   for(i in 1:nrow(data)) {
+    writeLines(paste(i, "/", nrow(data)))
     offset <- data[data$DT == (data[["DT"]][i] - (3600 * 24)), col]
     if(length(offset) == 0) {
       newCol <- c(newCol, NA)

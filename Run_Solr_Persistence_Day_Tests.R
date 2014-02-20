@@ -1,21 +1,30 @@
-if(!exists("offset_solr")) {
-  if(file.exists("Data.RData")) {
-    writeLines("Loading Data.RData")
-    load("Data.RData")
-  }
-  else {
-    source("Load_Data.R")
-  }
-}
-
 source('SOLR_Predict.R')
 
 merge_groups = c(12)
-max_num_past <- 6
+max_num_past <- 1
 
-offset_days <- merged
-for(i in 1:max_num_past) {
-  offset_days <- offsetDay(i, "SOLR", offset_days)
+if(!exists("offset_days")) {
+  if(file.exists("DaysOffset.RData")) {
+    load("DaysOffset.RDta")
+  }
+  else {
+    if(!exists("offset_solr")) {
+      if(file.exists("Data.RData")) {
+        writeLines("Loading Data.RData")
+        load("Data.RData")
+        source('SOLR_Predict.R')
+      }
+      else {
+        source("Load_Data.R")
+      }
+    }
+    
+    offset_days <- merged
+    for(i in 1:max_num_past) {
+      offset_days <- offsetDay(i, "SOLR", offset_days)
+    }
+    save(offset_days, file="DaysOffset.RData")
+  }
 }
 
 for(num_pentads in merge_groups) {
@@ -31,7 +40,7 @@ for(num_pentads in merge_groups) {
   for(num_past in 1:max_num_past) {    
     function_string <- character(0)
     for(i in 1:num_past) {
-     if(i > 1) {
+      if(i > 1) {
         
         function_string <- paste(function_string, "+ SOLR_DAY_", num_past, sep="")
       }
