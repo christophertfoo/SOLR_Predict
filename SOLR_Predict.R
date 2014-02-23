@@ -305,7 +305,7 @@ writeCsv <- function(data, dest) {
 }
 
 offsetDay <- function(numdays, col, data) {
-  newCol <- list()
+  newCol <- numeric(0)
   for(i in 1:nrow(data)) {
     writeLines(paste(i, "/", nrow(data)))
     offset <- data[data$DT == (data[["DT"]][i] - (3600 * 24)), col]
