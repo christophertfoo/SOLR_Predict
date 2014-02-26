@@ -14,7 +14,7 @@ merge_groups = c(12, 6, 4, 2, 1)
 max_num_past <- 6
 max_offset <- 6
 
-solr_stations <- c("AS839", "C0875", "D3665", "KFWH1", "KTAH1", "MKRH1", "OFRH1", "PLHH1", "SCSH1", "WNVH1")
+solr_stations <- c("KFWH1", "KTAH1", "MKRH1", "OFRH1", "PLHH1", "SCSH1", "WNVH1")
 for(num_pentads in merge_groups) {
   num_groups <- ceiling(73 / num_pentads)
   
@@ -70,7 +70,7 @@ for(num_pentads in merge_groups) {
             }
             SCBH1_Results_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- function_string
             SCBH1_Results_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_Results_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
-            SCBH1_Results_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolr(SCBH1_Results_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6")
+            SCBH1_Results_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrDeseasonalized(SCBH1_Results_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6", deseasonalized_signal, "SOLR")
           }
           writeLines("")
         }
@@ -83,7 +83,7 @@ for(num_pentads in merge_groups) {
     dir.create("Averaged")
     setwd("Averaged")
     for(i in 1:num_groups) {
-      writeTestResults(name=paste("SCBH1_Persistence_Solr_", i, "_Results.csv", sep=""), results=SCBH1_Results_Solr, pentad=i)
+      writeTestResults(name=paste("SCBH1_Preset_Solr_", i, "_Results.csv", sep=""), results=SCBH1_Results_Solr, pentad=i)
     }
     
     setwd("..")
@@ -95,7 +95,7 @@ for(num_pentads in merge_groups) {
       dir.create(pentad_dir)
       setwd(pentad_dir)
       for(j in 0:23) {
-        writeRawTestResults(name=paste("SCBH1_Persistence_Solr_", i, "_", j, "_Raw_Results.csv", sep=""), results=SCBH1_Results_Solr, pentad=i, hour=j)
+        writeRawTestResults(name=paste("SCBH1_Preset_Solr_", i, "_", j, "_Raw_Results.csv", sep=""), results=SCBH1_Results_Solr, pentad=i, hour=j)
       }
       setwd("..")
     }
