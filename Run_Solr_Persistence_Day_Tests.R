@@ -1,7 +1,7 @@
 source('SOLR_Predict.R')
 
-merge_groups = c(12)
-max_num_past <- 1
+merge_groups = c(12, 6, 4, 2, 1)
+max_num_past <- 3
 
 if(!exists("offset_days")) {
   if(file.exists("DaysOffset.RData")) {

@@ -52,7 +52,7 @@ for(num_features in feature_counts) {
           SCBH1_P_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- makeTopFunction(training_data, "SOLR_FRAC_6", num_features, correlationResults=P_Frac[[as.character(pentad)]][[as.character(hour)]])
           #        writeLines(paste("    ", SCBH1_P_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]))
           SCBH1_P_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_P_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
-          SCBH1_P_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolr(SCBH1_P_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_FRAC_6")
+          SCBH1_P_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrFrac(SCBH1_P_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_FRAC_6", "SOLR_MAX_6")
         }
         if(!is.null(S_Frac[[as.character(pentad)]][[as.character(hour)]])) {
           writeLines("  S")
@@ -65,7 +65,7 @@ for(num_features in feature_counts) {
           SCBH1_S_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- makeTopFunction(training_data, "SOLR_FRAC_6", num_features, correlationResults=S_Frac[[as.character(pentad)]][[as.character(hour)]])
           #        writeLines(paste("    ", SCBH1_S_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]))
           SCBH1_S_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_S_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
-          SCBH1_S_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolr(SCBH1_S_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_FRAC_6")
+          SCBH1_S_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrFrac(SCBH1_S_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_FRAC_6", "SOLR_MAX_6")
         }
         if(!is.null(K_Frac[[as.character(pentad)]][[as.character(hour)]])) {
           writeLines("  K")
@@ -78,7 +78,7 @@ for(num_features in feature_counts) {
           SCBH1_K_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- makeTopFunction(training_data, "SOLR_FRAC_6", num_features, correlationResults=K_Frac[[as.character(pentad)]][[as.character(hour)]])
           #        writeLines(paste("    ", SCBH1_K_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]))
           SCBH1_K_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_K_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
-          SCBH1_K_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolr(SCBH1_K_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_FRAC_6")
+          SCBH1_K_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrFrac(SCBH1_K_Frac[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_FRAC_6", "SOLR_MAX_6")
         }
         writeLines("")
       }

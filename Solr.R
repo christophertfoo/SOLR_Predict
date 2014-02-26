@@ -97,7 +97,81 @@ testContinuousModelSolr <- function(model, data, colName, verbose=F) {
       margin <- abs(actual - predicted)
       errorMargins <- c(errorMargins, margin)
       if(actual != 0) {
-        errorPercents <- c(errorPercents, margin / actual)
+        errorPercents <- c(errorPercents, abs(margin / actual))
+      }
+    }
+  }
+  if(verbose) {
+    print(paste("Errors:", errors, "/", nrow(data)))
+  }
+  
+  if(errors == 0) {
+    resultErrorMargin <- 0
+    resultErrorPercent <- 0
+    resultErrorSd <- 0
+  }
+  else {
+    resultErrorMargin <- (sum(errorMargins) / errors)
+    resultErrorPercent <- (sum(errorPercents) / errors) * 100
+    resultErrorSd <- sd(errorMargins)
+  }
+  
+  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, time=data[["DT"]],actual=data[[colName]], predicted=predictedVector))
+}
+
+testContinuousModelSolrFrac <- function(model, data, colName, maxColName, verbose=F) {
+  predictedVector <- predict(model, data)
+  errors <- 0
+  errorMargins <- numeric(0)
+  errorPercents <- numeric(0)
+  actualSum <- 0
+  for(i in 1:nrow(data)) {
+    max <- data[[maxColName]][i]
+    actual <- data[[colName]][i] * max
+    predicted <- predictedVector[i] * max
+    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
+      errors <- errors + 1
+      margin <- abs(actual - predicted)
+      errorMargins <- c(errorMargins, margin)
+      if(actual != 0) {
+        errorPercents <- c(errorPercents, abs(margin / actual))
+      }
+    }
+  }
+  if(verbose) {
+    print(paste("Errors:", errors, "/", nrow(data)))
+  }
+  
+  if(errors == 0) {
+    resultErrorMargin <- 0
+    resultErrorPercent <- 0
+    resultErrorSd <- 0
+  }
+  else {
+    resultErrorMargin <- (sum(errorMargins) / errors)
+    resultErrorPercent <- (sum(errorPercents) / errors) * 100
+    resultErrorSd <- sd(errorMargins)
+  }
+  
+  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, time=data[["DT"]],actual=data[[colName]], predicted=predictedVector))
+}
+
+testContinuousModelSolrDeseasonalized <- function(model, data, colName, deseasonalized_signal, deseasonalized_colName, verbose=F) {
+  predictedVector <- predict(model, data)
+  errors <- 0
+  errorMargins <- numeric(0)
+  errorPercents <- numeric(0)
+  actualSum <- 0
+  for(i in 1:nrow(data)) {
+    deseasonalized <- deseasonalized_signal[which(deseasonalized_signal$MON == data[["MON"]][i] & deseasonalized_signal$DAY == data[["DAY"]][i] & deseasonalized_signal$HR == data[["HR"]][i] & deseasonalized_signal$MIN == data[["MIN"]][i]), deseasonalized_colName]
+    actual <- data[[colName]][i] + deseasonalized
+    predicted <- predictedVector[i] + deseasonalized
+    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
+      errors <- errors + 1
+      margin <- abs(actual - predicted)
+      errorMargins <- c(errorMargins, margin)
+      if(actual != 0) {
+        errorPercents <- c(errorPercents, abs(margin / actual))
       }
     }
   }

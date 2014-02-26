@@ -14,7 +14,7 @@ source('SOLR_Predict.R')
 
 writeLines("Calculating Solr Deseasonalized Correlations")
 
-num_pentads <- 12
+num_pentads <- 73
 num_groups <- ceiling(73 / num_pentads)
 
 P_Deseasonalized_Solr <- list()

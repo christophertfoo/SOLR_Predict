@@ -21,7 +21,7 @@ writeRawTestResults <- function(name, results, pentad, hour) {
       num_predictions <- length(result$predicted)
       for(k in 1:num_predictions) {
         error <- abs(result$predicted[k] - result$actual[k])
-        writeLines(paste(result$time[k], result$actual[k], result$predicted[k], error, error / result$actual[k], sep=","))
+        writeLines(paste(result$time[k], result$actual[k], result$predicted[k], error, abs(error / result$actual[k]), sep=","))
       }
     }
     sink()
@@ -308,7 +308,7 @@ offsetDay <- function(numdays, col, data) {
   newCol <- numeric(0)
   for(i in 1:nrow(data)) {
     writeLines(paste(i, "/", nrow(data)))
-    offset <- data[data$DT == (data[["DT"]][i] - (3600 * 24)), col]
+    offset <- data[data$DT == (data[["DT"]][i] - (3600 * 24 * numdays)), col]
     if(length(offset) == 0) {
       newCol <- c(newCol, NA)
     }

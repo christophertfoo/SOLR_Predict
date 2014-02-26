@@ -10,7 +10,7 @@ if(!exists("offset_solr")) {
 
 source('SOLR_Predict.R')
 
-merge_groups = c(1, 2, 6, 12)
+merge_groups = c(12, 6, 4, 2, 1)
 max_num_past <- 6
 max_offset <- 6
 
@@ -30,9 +30,8 @@ for(num_pentads in merge_groups) {
       if(i == max_offset) {
         function_string <- paste(function_string, "+ SOLR")
       }
-      else if(i > 1) {
-        
-        function_string <- paste(function_string, "+ SOLR_", (max_offset - num_past), sep="")
+      else if(i > 1) {        
+        function_string <- paste(function_string, "+ SOLR_", (max_offset - i), sep="")
       }
       else {
         function_string <- paste("SOLR_", max_offset, " ~ SOLR_", (max_offset - 1), sep="")

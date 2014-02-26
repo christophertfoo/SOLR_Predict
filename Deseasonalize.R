@@ -3,7 +3,7 @@ source('SOLR_Predict.R')
 merge_groups = c(12)
 max_num_past <- 1
 
-if(!exists("deseasonalized") || !exists("deseasonalized_signal")) {
+if(!exists("deseasonalized") || !exists("deseasonalized_signal") || !exists("deseasonalized_offset")) {
   if(file.exists("Deseasonalized.RData")) {
     load("Deseasonalized.RData")
   }
@@ -25,8 +25,9 @@ if(!exists("deseasonalized") || !exists("deseasonalized_signal")) {
     HR <- numeric(0)
     MIN <- numeric(0)
     SOLR <- numeric(0)
-    while(current_time$year != 2015) {
-      current_mon <- current_time$mon
+    while(current_time$year == 114) {
+      print(current_time)
+      current_mon <- current_time$mon + 1
       current_day <- current_time$mday
       current_hour <- current_time$hour
       current_min <- current_time$min
@@ -41,7 +42,6 @@ if(!exists("deseasonalized") || !exists("deseasonalized_signal")) {
       SOLR <- c(SOLR, avg_solr)
       
       for(i in matches) {
-        print(i)
         deseasonalized[["SOLR"]][i] <- deseasonalized[["SOLR"]][i] - avg_solr
       }
       
