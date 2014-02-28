@@ -159,8 +159,7 @@ goodCorrelateTop <- function(col, data, topThreshold, selectedMethod="pearson", 
   }
   if(nrow(results) < topThreshold) {
     numResults <- nrow(results)
-  }
-  else {
+  } else {
     numResults <- topThreshold
   }
   results <- results[order(abs(results$correlations), decreasing=T),]
@@ -203,8 +202,7 @@ writeCorrelationResult <- function(station, method, pentad, data) {
   for(i in 0:23) {
     if(is.null(row)) {
       row <- paste(paste("Feature-HR", i, sep=""), paste("Correlation-HR", i, sep=""),sep=",")
-    }
-    else {
+    } else {
       row <- paste(row, paste("Feature-HR", i, sep=""), paste("Correlation-HR", i, sep=""),sep=",")
     }
   }
@@ -227,16 +225,13 @@ writeCorrelationResult <- function(station, method, pentad, data) {
         if(is.null(row)) {
           if(is.null(result)) {
             row <- ","
-          }
-          else {
+          } else {
             row <- paste(result[i,"names"], result[i, "correlations"], sep=",")
           }
-        }
-        else {
+        } else {
           if(is.null(result)) {
             row <- paste(row, ",", sep=",")
-          }
-          else {
+          } else {
             row <- paste(row, result[i,"names"], result[i, "correlations"],sep=",")
           }
         }

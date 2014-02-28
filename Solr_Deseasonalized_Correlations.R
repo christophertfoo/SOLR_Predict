@@ -2,8 +2,7 @@ if(!exists("deseasonalized_offset")) {
   if(file.exists("Deseasonalized.RData")) {
     writeLines("Loading Deseasonalized.RData")
     load("Deseasonalized.RData")
-  }
-  else {
+  } else {
     source("Deseasonalize.R")
   }
 }

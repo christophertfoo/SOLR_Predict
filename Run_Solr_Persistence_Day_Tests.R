@@ -6,15 +6,13 @@ max_num_past <- 3
 if(!exists("offset_days")) {
   if(file.exists("DaysOffset.RData")) {
     load("DaysOffset.RData")
-  }
-  else {
+  } else {
     if(!exists("merged")) {
       if(file.exists("Data.RData")) {
         writeLines("Loading Data.RData")
         load("Data.RData")
         source('SOLR_Predict.R')
-      }
-      else {
+      } else {
         source("Load_Data.R")
       }
     }
@@ -43,8 +41,7 @@ for(num_pentads in merge_groups) {
       if(i > 1) {
         
         function_string <- paste(function_string, "+ SOLR_DAY_", num_past, sep="")
-      }
-      else {
+      } else {
         function_string <- "SOLR ~ SOLR_DAY_1"
       }
     }

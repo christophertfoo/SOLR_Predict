@@ -65,8 +65,7 @@ testModelNightDayHelper <- function(model, predicted, data, colName, verbose=F) 
       errors <- errors + 1
       if(as.logical(actualValue)) {
         falseNegative <- falseNegative + 1
-      }
-      else {
+      } else {
         falsePositive <- falsePositive + 1
       }
     }
@@ -90,8 +89,7 @@ testModelNightDayHelper <- function(model, predicted, data, colName, verbose=F) 
 makeTreeNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
   if(intervalSize == 0) {
     training <- data
-  }
-  else {
+  } else {
     training <- data[data$MON %in% start:(start + intervalSize - 1),]
   }
   return(rpart(formula=as.formula(modelFormula), data=training, na.action=na.omit))
@@ -110,8 +108,7 @@ makeTreeNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME 
 makeNbNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
   if(intervalSize == 0) {
     training <- data
-  }
-  else {
+  } else {
     training <- data[data$MON %in% start:(start + intervalSize - 1),]
   }
   return(naiveBayes(formula=as.formula(modelFormula), data=training, na.action=na.omit))
@@ -130,8 +127,7 @@ makeNbNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + 
 makeAnnNightDay <- function(data, intervalSize, start, modelFormula="ND ~ TIME + MON") {
   if(intervalSize == 0) {
     training <- data
-  }
-  else {
+  } else {
     training <- data[data$MON %in% start:(start + intervalSize - 1),]
   }
   return(nnet(formula=as.formula(modelFormula), data=training, na.action=na.omit, size=1, trace=FALSE))

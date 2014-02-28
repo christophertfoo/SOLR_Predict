@@ -36,8 +36,7 @@ writeTestResults <- function(name, results, pentad) {
   for(i in 0:23) {
     if(is.null(results[[as.character(pentad)]][[as.character(i)]])) {
       writeLines(paste(i, ",,,"))
-    }
-    else {
+    } else {
       years <- names(results[[as.character(pentad)]][[as.character(i)]])   
       num_years <- length(years)
       em <- 0
@@ -58,8 +57,7 @@ writeTestResults <- function(name, results, pentad) {
         ep <- ep / count
         stddev <- stddev / count
         writeLines(paste(i, em, stddev, ep, sep=","))
-      }
-      else {
+      } else {
         writeLines(paste(i, ",,,"))
       }
     }
@@ -128,8 +126,7 @@ mergeCsv <- function(dataSource) {
     if(first) {
       merged <- read.csv(csvFiles[i]);
       first <- F;
-    }
-    else {
+    } else {
       merged <- rbind(merged, read.csv(csvFiles[i]));
     }
   }
@@ -263,8 +260,7 @@ convertNightDay <- function(data, colName, threshold) {
   for(i in 1:nrow(data)) {
     if(length(nightDay) == 0) {
       nightDay <- !is.na(data[[colName]][i]) && data[[colName]][i] < threshold
-    } 
-    else {
+    } else {
       nightDay <- c(nightDay, !is.na(data[[colName]][i]) && data[[colName]][i] < threshold)
     }
   }
@@ -311,8 +307,7 @@ offsetDay <- function(numdays, col, data) {
     offset <- data[data$DT == (data[["DT"]][i] - (3600 * 24 * numdays)), col]
     if(length(offset) == 0) {
       newCol <- c(newCol, NA)
-    }
-    else {
+    } else {
       newCol <- c(newCol, offset[1])
     }
   }
@@ -417,8 +412,7 @@ convertTreeResult <- function(result) {
     }
     if(length(returnList) == 0) {
       returnList <- colNames[prediction]
-    }
-    else {
+    } else {
       returnList <- c(returnList, colNames[prediction])
     }
   }
@@ -516,8 +510,7 @@ tenFold <- function(data, makeModelFun, intervalSize, start, testFun, colName, m
     for(j in 1:length(temp)) {
       if(j == 1) {
         training <- temp[[j]]
-      }
-      else {
+      } else {
         training <- rbind(training, temp[[j]])
       }
     }
@@ -584,8 +577,7 @@ makeFullModelFunction <- function(data, colName, ignoreList=vector()) {
       if(first) {
         functionString <- paste(functionString, i)
         first <- F
-      }
-      else {
+      } else {
         functionString <- paste(functionString, "+", i)
       }
     }
@@ -614,8 +606,7 @@ makeTopFunction <- function(data, colName, topThreshold, selectedMethod="pearson
       if(first) {
         functionString <- paste(" ", functionString, "`", as.character(i), "`", sep="")
         first <- F
-      }
-      else {
+      } else {
         functionString <- paste(functionString, " + ", "`", as.character(i), "`", sep="")
       }
     }
@@ -644,8 +635,7 @@ makeThreshFunction <- function(data, colName, threshold, selectedMethod="pearson
       if(first) {
         functionString <- paste(functionString, as.character(i))
         first <- F
-      }
-      else {
+      } else {
         functionString <- paste(functionString, "+", as.character(i))
       }
     }
@@ -676,14 +666,11 @@ generateNDModels <- function(comboString, colName, data, ndThreshold=1) {
 
     if(string == "NULL") {
       models <- c(models, list(list(start=start, end=end, model=NULL)))
-    }
-    else if (string == "Naive Bayes") {
+    } else if (string == "Naive Bayes") {
       models <- c(models, list(list(start=start, end=end, model=naiveBayes(formula=as.formula(modelFormula), data=data[data$MON >= start & data$MON <= end,], na.action=na.omit), type="Naive Bayes")))
-    }
-    else if(string == "Decision Tree") {
+    } else if(string == "Decision Tree") {
       models <- c(models, list(list(start=start, end=end, model=rpart(formula=as.formula(modelFormula), data=data[data$MON >= start & data$MON <= end,], na.action=na.omit), type="Decision Tree")))
-    }
-    else if(string == "ANN") {
+    } else if(string == "ANN") {
       models <- c(models, list(list(start=start, end=end, model=nnet(formula=as.formula(modelFormula), data=data[data$MON >= start & data$MON <= end,], na.action=na.omit, size=1, trace=FALSE), type="ANN")))
     }
     start  = start + intervalSize
@@ -718,20 +705,15 @@ generateSolrModels <- function(comboString, colName, data, modelFormula, numCuts
     
     if(string == "NULL") {
       models <- c(models, list(list(start=start, end=end, model=NULL, type="NULL")))
-    }
-    else if(string == "Linear Regression") {
+    } else if(string == "Linear Regression") {
       models <- c(models, list(list(start=start, end=end, model=lm(formula=as.formula(modelFormula), data=data[data$TIME >= start & data$TIME <= end,], na.action=na.omit), type="Linear Regression")))
-    }
-    else if (string == "Naive Bayes") {
+    } else if (string == "Naive Bayes") {
       models <- c(models, list(list(start=start, end=end, model=naiveBayes(formula=as.formula(classModelFunction), data=data[data$TIME >= start & data$TIME <= end,], na.action=na.omit), type="Naive Bayes")))
-    }
-    else if(string == "Decision Tree") {
+    } else if(string == "Decision Tree") {
       models <- c(models, list(list(start=start, end=end, model=rpart(formula=as.formula(modelFormula), data=data[data$TIME >= start & data$TIME <= end,], na.action=na.omit, method="anova"), type="Decision Tree")))
-    }
-    else if(string == "ANN") {
+    } else if(string == "ANN") {
       models <- c(models, list(list(start=start, end=end, model=nnet(formula=as.formula(classModelFunction), data=data[data$TIME >= start & data$TIME <= end,], na.action=na.omit, size=1, trace=FALSE, MaxNWts=5000), type="ANN")))
-    }
-    else if(string == "Random Forest") {
+    } else if(string == "Random Forest") {
       models <- c(models, list(list(start=start, end=end, model=randomForest(formula=as.formula(modelFormula), data=data[data$TIME >= start & data$TIME <= end,], na.action=na.omit), type="Random Forest")))
     }
     start  = start + intervalSize
@@ -829,8 +811,7 @@ predictSolr <- function(model, data) {
     night <- predictNightDay(model, data[i,])
     if(night) {
       predictions[i] <- 0
-    }
-    else {
+    } else {
       predictions[i] <- predictSolrHelper(model, data[i,])
     }
   }
@@ -872,11 +853,9 @@ predictSolrHelper <- function(model, data) {
       type <- model$solrModel[[i]]$type
       if(type == "NULL") {
         return(0)
-      }
-      else if(type == "Linear Regression" || type == "Decision Tree" || type == "Random Forest") {
+      } else if(type == "Linear Regression" || type == "Decision Tree" || type == "Random Forest") {
         return(as.numeric(predict(model$solrModel[[i]]$model, data)[1]))
-      }
-      else {
+      } else {
         return(averageFactor(predict(model$solrModel[[i]]$model, data, type="class")[1]))
       }
     }

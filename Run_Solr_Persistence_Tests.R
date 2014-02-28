@@ -2,8 +2,7 @@ if(!exists("offset_solr")) {
   if(file.exists("Data.RData")) {
     writeLines("Loading Data.RData")
     load("Data.RData")
-  }
-  else {
+  } else {
     source("Load_Data.R")
   }
 }
@@ -29,11 +28,9 @@ for(num_pentads in merge_groups) {
     for(i in 1:num_past) {
       if(i == max_offset) {
         function_string <- paste(function_string, "+ SOLR")
-      }
-      else if(i > 1) {        
+      } else if(i > 1) {        
         function_string <- paste(function_string, "+ SOLR_", (max_offset - i), sep="")
-      }
-      else {
+      } else {
         function_string <- paste("SOLR_", max_offset, " ~ SOLR_", (max_offset - 1), sep="")
       }
     }

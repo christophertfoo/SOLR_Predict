@@ -6,15 +6,13 @@ max_num_past <- 1
 if(!exists("deseasonalized") || !exists("deseasonalized_signal") || !exists("deseasonalized_offset")) {
   if(file.exists("Deseasonalized.RData")) {
     load("Deseasonalized.RData")
-  }
-  else {
+  } else {
     if(!exists("merged")) {
       if(file.exists("Data.RData")) {
         writeLines("Loading Data.RData")
         load("Data.RData")
         source('SOLR_Predict.R')
-      }
-      else {
+      } else {
         source("Load_Data.R")
       }
     }

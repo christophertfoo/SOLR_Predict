@@ -2,8 +2,7 @@ if(!exists("offset_solr_frac")) {
   if(file.exists("Data.RData")) {
     writeLines("Loading Data.RData")
     load("Data.RData")
-  }
-  else {
+  } else {
     source("Load_Data.R")
   }
 }

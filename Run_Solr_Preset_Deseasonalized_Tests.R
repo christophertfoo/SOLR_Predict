@@ -2,8 +2,7 @@ if(!exists("deseasonalized_offset")) {
   if(file.exists("Deseasonalized.RData")) {
     writeLines("Loading Deseasonalized.RData")
     load("Deseasonalized.RData")
-  }
-  else {
+  } else {
     source("Deseasonalize.R")
   }
 }
@@ -33,14 +32,12 @@ for(num_pentads in merge_groups) {
         for(station in solr_stations) {
           function_string <- paste(function_string, paste(" + ", station,"_SOLR",sep=""))
         }
-      }
-      else if(i > 1) {        
+      } else if(i > 1) {        
         function_string <- paste(function_string, "+ SOLR_", (max_offset - i), sep="")
         for(station in solr_stations) {
           function_string <- paste(function_string, paste(" + ", station,"_SOLR_", (max_offset - i),sep=""))
         }
-      }
-      else {
+      } else {
         function_string <- paste("SOLR_", max_offset, " ~ SOLR_", (max_offset - 1), sep="")
         for(station in solr_stations) {
           function_string <- paste(function_string, paste(" + ", station,"_SOLR_", (max_offset - 1),sep=""))

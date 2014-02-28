@@ -4,8 +4,7 @@ if(!exists("deseasonalized_offset")) {
   if(file.exists("Deseasonalized.RData")) {
     writeLines("Loading Deseasonalized.RData")
     load("Deseasonalized.RData")
-  }
-  else {
+  } else {
     source("Deseasonalize.R")
   }
 }
@@ -14,8 +13,7 @@ if(!exists("P_Deseasonalized_Solr") || !exists("S_Deseasonalized_Solr") || !exis
   if(file.exists("Solr_Deseasonalized_Correlations.RData")) {
     writeLines("Loading Solr_Deseasonalized_Correlations.RData")
     load("Solr_Deseasonalized_Correlations.RData")
-  }
-  else {
+  } else {
     source("Solr_Deseasonalized_Correlations.R")
   }
 }

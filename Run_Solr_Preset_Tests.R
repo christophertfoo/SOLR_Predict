@@ -2,8 +2,7 @@ if(!exists("offset_solr")) {
   if(file.exists("Data.RData")) {
     writeLines("Loading Data.RData")
     load("Data.RData")
-  }
-  else {
+  } else {
     source("Load_Data.R")
   }
 }
@@ -33,14 +32,12 @@ for(num_pentads in merge_groups) {
         for(station in solr_stations) {
           function_string <- paste(function_string, paste(" + ", station,"_SOLR",sep=""))
         }
-      }
-      else if(i > 1) {        
+      } else if(i > 1) {        
         function_string <- paste(function_string, "+ SOLR_", (max_offset - i), sep="")
         for(station in solr_stations) {
           function_string <- paste(function_string, paste(" + ", station,"_SOLR_", (max_offset - i),sep=""))
         }
-      }
-      else {
+      } else {
         function_string <- paste("SOLR_", max_offset, " ~ SOLR_", (max_offset - 1), sep="")
         for(station in solr_stations) {
           function_string <- paste(function_string, paste(" + ", station,"_SOLR_", (max_offset - 1),sep=""))

@@ -109,8 +109,7 @@ testContinuousModelSolr <- function(model, data, colName, verbose=F) {
     resultErrorMargin <- 0
     resultErrorPercent <- 0
     resultErrorSd <- 0
-  }
-  else {
+  } else {
     resultErrorMargin <- (sum(errorMargins) / errors)
     resultErrorPercent <- (sum(errorPercents) / errors) * 100
     resultErrorSd <- sd(errorMargins)
@@ -146,8 +145,7 @@ testContinuousModelSolrFrac <- function(model, data, colName, maxColName, verbos
     resultErrorMargin <- 0
     resultErrorPercent <- 0
     resultErrorSd <- 0
-  }
-  else {
+  } else {
     resultErrorMargin <- (sum(errorMargins) / errors)
     resultErrorPercent <- (sum(errorPercents) / errors) * 100
     resultErrorSd <- sd(errorMargins)
@@ -183,8 +181,7 @@ testContinuousModelSolrDeseasonalized <- function(model, data, colName, deseason
     resultErrorMargin <- 0
     resultErrorPercent <- 0
     resultErrorSd <- 0
-  }
-  else {
+  } else {
     resultErrorMargin <- (sum(errorMargins) / errors)
     resultErrorPercent <- (sum(errorPercents) / errors) * 100
     resultErrorSd <- sd(errorMargins)
@@ -259,8 +256,7 @@ testClassModelSolrHelper <- function(model, predictedClasses, data, colName, ver
     resultErrorMargin <- 0
     resultErrorPercent <- 0
     resultErrorSd <- 0
-  }
-  else {
+  } else {
     resultErrorMargin <- (sum(errorMargins) / errors)
     resultErrorPercent <- (sum(errorPercents) / errors) * 100
     resultErrorSd <- sd(errorMargins)
@@ -290,8 +286,7 @@ testClassModelSolrHelper <- function(model, predictedClasses, data, colName, ver
 testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbose=F, checkNb=F, checkRandomForest=F, checkAnn=F, mean=0, filter=T) {
   if(filter) {
     testData <- data[!is.na(data[[colName]]) & data[[colName]] > 1,]
-  }
-  else {
+  } else {
     testData <- data
   }
   
@@ -303,8 +298,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
     modelFunction <- paste(colName ,"~", strsplit(modelFunction, "~")[[1]][2], sep="")
     testData["SOLR_D"] <- cut(testData[[colName]], numCuts)
     classModelFunction <- paste("SOLR_D ~", strsplit(modelFunction, "~")[[1]][2], sep="")
-  }
-  else {
+  } else {
     testData["SOLR_D"] <- cut(testData[[colName]], numCuts)
     classModelFunction <- paste("SOLR_D ~", strsplit(modelFunction, "~")[[1]][2], sep="")
   }
@@ -337,8 +331,7 @@ testSolr <- function(data, intervalSize, colName, modelFunction, numCuts, verbos
       bestModel <- "NULL"
       bestRelResult <- NULL
       bestRelModel <- "NULL"
-    }
-    else {
+    } else {
       bestResult <- intervalResult
       bestModel <- "Linear Regression"
       bestRelResult <- intervalResult

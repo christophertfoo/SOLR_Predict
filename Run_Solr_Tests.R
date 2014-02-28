@@ -2,8 +2,7 @@ if(!exists("offset_solr")) {
   if(file.exists("Data.RData")) {
     writeLines("Loading Data.RData")
     load("Data.RData")
-  }
-  else {
+  } else {
     source("Load_Data.R")
   }
 }
@@ -12,8 +11,7 @@ if(!exists("P_Solr") || !exists("S_Solr") || !exists("K_Solr")) {
   if(file.exists("Solr_Correlations.RData")) {
     writeLines("Loading Solr_Correlations.RData")
     load("Solr_Correlations.RData")
-  }
-  else {
+  } else {
     source("Solr_Correlations.R")
   }
 }

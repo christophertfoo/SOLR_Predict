@@ -2,8 +2,7 @@ if(!exists("offset_solr_frac")) {
   if(file.exists("Data.RData")) {
     writeLines("Loading Data.RData")
     load("Data.RData")
-  }
-  else {
+  } else {
     source("Load_Data.R")
   }
 }
@@ -12,8 +11,7 @@ if(!exists("P_Frac") || !exists("S_Frac") || !exists("K_Frac")) {
   if(file.exists("Frac_Correlations.RData")) {
     writeLines("Loading Frac_Correlations.RData")
     load("Frac_Correlations.RData")
-  }
-  else {
+  } else {
     source("Frac_Correlations.R")
   }
 }
