@@ -39,41 +39,43 @@ for(num_features in feature_counts) {
         writeLines(paste("# of Features - ", num_features," Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
         training_data <- training[training$PENTAD >= (start) & training$PENTAD <= (start + num_pentads - 1) & training$HR == hour,]
         test_data <- test[test$PENTAD >= (start) & test$PENTAD <= (start + num_pentads - 1) & test$HR == hour,]
-        if(!is.null(P_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])) {
-          writeLines("  P")
-          if(is.null(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]])) {
-            SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]] <- list()          
+        if(nrow(test_data) > 0 && nrow(training_data) > 0) {
+          if(!is.null(P_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])) {
+            writeLines("  P")
+            if(is.null(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]])) {
+              SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]] <- list()          
+            }
+            if(is.null(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]])) {
+              SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]] <- list()
+            }
+            SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- makeTopFunction(training_data, "SOLR_6", num_features, correlationResults=P_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])
+            SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
+            SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrDeseasonalized(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6", deseasonalized_signal, "SOLR")
           }
-          if(is.null(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]])) {
-            SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]] <- list()
+          if(!is.null(S_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])) {
+            writeLines("  S")
+            if(is.null(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]])) {
+              SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]] <- list()
+            }
+            if(is.null(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]])) {
+              SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]] <- list()
+            }
+            SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- makeTopFunction(training_data, "SOLR_6", num_features, correlationResults=S_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])
+            SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
+            SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrDeseasonalized(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6", deseasonalized_signal, "SOLR")
           }
-          SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- makeTopFunction(training_data, "SOLR_6", num_features, correlationResults=P_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])
-          SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
-          SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrDeseasonalized(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6", deseasonalized_signal, "SOLR")
-        }
-        if(!is.null(S_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])) {
-          writeLines("  S")
-          if(is.null(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]])) {
-            SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]] <- list()
+          if(!is.null(K_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])) {
+            writeLines("  K")
+            if(is.null(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]])) {
+              SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]] <- list()
+            }
+            if(is.null(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]])) {
+              SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]] <- list()
+            }
+            SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- makeTopFunction(training_data, "SOLR_6", num_features, correlationResults=K_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])
+            SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
+            SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrDeseasonalized(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6", deseasonalized_signal, "SOLR")
           }
-          if(is.null(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]])) {
-            SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]] <- list()
-          }
-          SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- makeTopFunction(training_data, "SOLR_6", num_features, correlationResults=S_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])
-          SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
-          SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrDeseasonalized(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6", deseasonalized_signal, "SOLR")
-        }
-        if(!is.null(K_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])) {
-          writeLines("  K")
-          if(is.null(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]])) {
-            SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]] <- list()
-          }
-          if(is.null(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]])) {
-            SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]] <- list()
-          }
-          SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]] <- makeTopFunction(training_data, "SOLR_6", num_features, correlationResults=K_Deseasonalized_Solr[[as.character(pentad)]][[as.character(hour)]])
-          SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- lm(formula=as.formula(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["function"]]), data=training_data, na.action=na.omit)
-          SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolrDeseasonalized(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6", deseasonalized_signal, "SOLR")
         }
         writeLines("")
       }

@@ -49,7 +49,7 @@ for(num_features in feature_counts) {
           if(is.null(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]])) {
             SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]] <- list()
           }
-          SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["columns"]] <- goodCorrelateTop(training_data, "SOLR_6", num_features, results=P_Solr[[as.character(pentad)]][[as.character(hour)]])[["names"]]
+          SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["columns"]] <- as.vector(goodCorrelateTop(training_data, "SOLR_6", num_features, results=P_Solr[[as.character(pentad)]][[as.character(hour)]])[["names"]])
           SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- cubist(x=training_data[,SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["columns"]]], y=training_data[,"SOLR_6"])
           SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolr(SCBH1_P_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6")
         }
@@ -61,7 +61,7 @@ for(num_features in feature_counts) {
           if(is.null(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]])) {
             SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]] <- list()
           }
-          SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["columns"]] <- goodCorrelateTop(training_data, "SOLR_6", num_features, results=S_Solr[[as.character(pentad)]][[as.character(hour)]])[["names"]]
+          SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["columns"]] <- as.vector(goodCorrelateTop(training_data, "SOLR_6", num_features, results=S_Solr[[as.character(pentad)]][[as.character(hour)]])[["names"]])
           SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- cubist(x=training_data[,SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["columns"]]], y=training_data[,"SOLR_6"])
           SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolr(SCBH1_S_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6")
         }
@@ -73,7 +73,7 @@ for(num_features in feature_counts) {
           if(is.null(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]])) {
             SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]] <- list()
           }
-          SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["columns"]] <- goodCorrelateTop(training_data, "SOLR_6", num_features, results=K_Solr[[as.character(pentad)]][[as.character(hour)]])[["names"]]
+          SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["columns"]] <- as.vector(goodCorrelateTop(training_data, "SOLR_6", num_features, results=K_Solr[[as.character(pentad)]][[as.character(hour)]])[["names"]])
           SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]] <- cubist(x=training_data[,SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["columns"]]], y=training_data[,"SOLR_6"])
           SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["result"]] <- testContinuousModelSolr(SCBH1_K_Solr[[as.character(pentad)]][[as.character(hour)]][[as.character(test_year)]][["model"]], test_data, "SOLR_6")
         }
