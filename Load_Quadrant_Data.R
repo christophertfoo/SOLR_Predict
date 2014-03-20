@@ -8,32 +8,19 @@ if(file.exists("Data.RData")) {
 source('SOLR_Predict.R')
 
 low_wind_threshold <- 3
+wind_column <- "SKNT"
+drct_column <- "DRCT"
+offset_wind_column <- "SKNT_6"
+offset_drct_column <- "DRCT_6"
+
+merged_temp <- merged
+offset_solr_temp <- dataOffset(6, c("SOLR", "SKNT", "DRCT", "SKNT_E", "SKNT_N"), merged_temp)
+offset_solr_frac_temp <- dataOffset(6, c("SOLR_FRAC", "SKNT", "DRCT", "SKNT_E", "SKNT_N"), merged_temp)
 
 writeLines("Low Wind")
-merged <- SCBH1[SCBH1$SKNT < low_wind_threshold,]
-merged <- mergeDataFrames(merged, AS839, "AS839")
-merged <- mergeDataFrames(merged, C0875, "C0875")
-merged <- mergeDataFrames(merged, D3665, "D3665")
-merged <- mergeDataFrames(merged, HOFH1, "HOFH1")
-merged <- mergeDataFrames(merged, KFWH1, "KFWH1")
-merged <- mergeDataFrames(merged, KTAH1, "KTAH1")
-merged <- mergeDataFrames(merged, MKHH1, "MKHH1")
-merged <- mergeDataFrames(merged, MKRH1, "MKRH1")
-merged <- mergeDataFrames(merged, MOKH1, "MOKH1")
-merged <- mergeDataFrames(merged, OFRH1, "OFRH1")
-merged <- mergeDataFrames(merged, OOUH1, "OOUH1")
-merged <- mergeDataFrames(merged, PHHI, "PHHI")
-merged <- mergeDataFrames(merged, PHJR, "PHJR")
-merged <- mergeDataFrames(merged, PHNG, "PHNG")
-merged <- mergeDataFrames(merged, PHNL, "PHNL")
-merged <- mergeDataFrames(merged, PLHH1, "PLHH1")
-merged <- mergeDataFrames(merged, SCSH1, "SCSH1")
-merged <- mergeDataFrames(merged, WNVH1, "WNVH1")
-merged <- mergeDataFrames(merged, WWFH1, "WWFH1")
-
-offset_solr <- dataOffset(6, "SOLR", merged)
-offset_solr_frac <- dataOffset(6, "SOLR_FRAC", merged)
-
+merged <- merged_temp[merged_temp[[wind_column]] < low_wind_threshold,]
+offset_solr <- offset_solr_temp[offset_solr_temp[[offset_wind_column]] < low_wind_threshold,]
+offset_solr_frac <- offset_solr_frac_temp[offset_solr_frac_temp[[offset_wind_column]] < low_wind_threshold,]
 save(merged, offset_solr, offset_solr_frac, file="Data_Low_Wind.RData")
 rm(merged)
 rm(offset_solr)
@@ -41,30 +28,9 @@ rm(offset_solr_frac)
 gc()
 
 writeLines("Quadrant 1")
-merged <- SCBH1[SCBH1$SKNT >= low_wind_threshold & (SCBH1$DRCT >= 90 & SCBH1$DRCT < 180),]
-merged <- mergeDataFrames(merged, AS839, "AS839")
-merged <- mergeDataFrames(merged, C0875, "C0875")
-merged <- mergeDataFrames(merged, D3665, "D3665")
-merged <- mergeDataFrames(merged, HOFH1, "HOFH1")
-merged <- mergeDataFrames(merged, KFWH1, "KFWH1")
-merged <- mergeDataFrames(merged, KTAH1, "KTAH1")
-merged <- mergeDataFrames(merged, MKHH1, "MKHH1")
-merged <- mergeDataFrames(merged, MKRH1, "MKRH1")
-merged <- mergeDataFrames(merged, MOKH1, "MOKH1")
-merged <- mergeDataFrames(merged, OFRH1, "OFRH1")
-merged <- mergeDataFrames(merged, OOUH1, "OOUH1")
-merged <- mergeDataFrames(merged, PHHI, "PHHI")
-merged <- mergeDataFrames(merged, PHJR, "PHJR")
-merged <- mergeDataFrames(merged, PHNG, "PHNG")
-merged <- mergeDataFrames(merged, PHNL, "PHNL")
-merged <- mergeDataFrames(merged, PLHH1, "PLHH1")
-merged <- mergeDataFrames(merged, SCSH1, "SCSH1")
-merged <- mergeDataFrames(merged, WNVH1, "WNVH1")
-merged <- mergeDataFrames(merged, WWFH1, "WWFH1")
-
-offset_solr <- dataOffset(6, "SOLR", merged)
-offset_solr_frac <- dataOffset(6, "SOLR_FRAC", merged)
-
+merged <- merged_temp[merged_temp[[wind_column]] >= low_wind_threshold & (merged_temp[[drct_column]] >= 90 & merged_temp[[drct_column]] < 180),]
+offset_solr <- offset_solr_temp[offset_solr_temp[[offset_wind_column]] >= low_wind_threshold & (offset_solr_temp[[offset_drct_column]] >= 90 & offset_solr_temp[[offset_drct_column]] < 180),]
+offset_solr_frac <- offset_solr_frac_temp[offset_solr_frac_temp[[offset_wind_column]] < low_wind_threshold & (offset_solr_frac_temp[[offset_drct_column]] >= 90 & offset_solr_frac_temp[[offset_drct_column]] < 180),]
 save(merged, offset_solr, offset_solr_frac, file="Data_Quadrant_1.RData")
 rm(merged)
 rm(offset_solr)
@@ -72,30 +38,9 @@ rm(offset_solr_frac)
 gc()
 
 writeLines("Quadrant 4")
-merged <- SCBH1[SCBH1$SKNT >= low_wind_threshold & (SCBH1$DRCT >= 0 & SCBH1$DRCT < 90),]
-merged <- mergeDataFrames(merged, AS839, "AS839")
-merged <- mergeDataFrames(merged, C0875, "C0875")
-merged <- mergeDataFrames(merged, D3665, "D3665")
-merged <- mergeDataFrames(merged, HOFH1, "HOFH1")
-merged <- mergeDataFrames(merged, KFWH1, "KFWH1")
-merged <- mergeDataFrames(merged, KTAH1, "KTAH1")
-merged <- mergeDataFrames(merged, MKHH1, "MKHH1")
-merged <- mergeDataFrames(merged, MKRH1, "MKRH1")
-merged <- mergeDataFrames(merged, MOKH1, "MOKH1")
-merged <- mergeDataFrames(merged, OFRH1, "OFRH1")
-merged <- mergeDataFrames(merged, OOUH1, "OOUH1")
-merged <- mergeDataFrames(merged, PHHI, "PHHI")
-merged <- mergeDataFrames(merged, PHJR, "PHJR")
-merged <- mergeDataFrames(merged, PHNG, "PHNG")
-merged <- mergeDataFrames(merged, PHNL, "PHNL")
-merged <- mergeDataFrames(merged, PLHH1, "PLHH1")
-merged <- mergeDataFrames(merged, SCSH1, "SCSH1")
-merged <- mergeDataFrames(merged, WNVH1, "WNVH1")
-merged <- mergeDataFrames(merged, WWFH1, "WWFH1")
-
-offset_solr <- dataOffset(6, "SOLR", merged)
-offset_solr_frac <- dataOffset(6, "SOLR_FRAC", merged)
-
+merged <- merged_temp[merged_temp[[wind_column]] >= low_wind_threshold & (merged_temp[[drct_column]] >= 0 & merged_temp[[drct_column]] < 90),]
+offset_solr <- offset_solr_temp[offset_solr_temp[[offset_wind_column]] >= low_wind_threshold & (offset_solr_temp[[offset_drct_column]] >= 0 & offset_solr_temp[[offset_drct_column]] < 90),]
+offset_solr_frac <- offset_solr_frac_temp[offset_solr_frac_temp[[offset_wind_column]] < low_wind_threshold & (offset_solr_frac_temp[[offset_drct_column]] >= 0 & offset_solr_frac_temp[[offset_drct_column]] < 90),]
 save(merged, offset_solr, offset_solr_frac, file="Data_Quadrant_4.RData")
 rm(merged)
 rm(offset_solr)
@@ -103,30 +48,9 @@ rm(offset_solr_frac)
 gc()
 
 writeLines("Quadrant 3")
-merged <- SCBH1[SCBH1$SKNT >= low_wind_threshold & (SCBH1$DRCT >= -90 & SCBH1$DRCT < 0),]
-merged <- mergeDataFrames(merged, AS839, "AS839")
-merged <- mergeDataFrames(merged, C0875, "C0875")
-merged <- mergeDataFrames(merged, D3665, "D3665")
-merged <- mergeDataFrames(merged, HOFH1, "HOFH1")
-merged <- mergeDataFrames(merged, KFWH1, "KFWH1")
-merged <- mergeDataFrames(merged, KTAH1, "KTAH1")
-merged <- mergeDataFrames(merged, MKHH1, "MKHH1")
-merged <- mergeDataFrames(merged, MKRH1, "MKRH1")
-merged <- mergeDataFrames(merged, MOKH1, "MOKH1")
-merged <- mergeDataFrames(merged, OFRH1, "OFRH1")
-merged <- mergeDataFrames(merged, OOUH1, "OOUH1")
-merged <- mergeDataFrames(merged, PHHI, "PHHI")
-merged <- mergeDataFrames(merged, PHJR, "PHJR")
-merged <- mergeDataFrames(merged, PHNG, "PHNG")
-merged <- mergeDataFrames(merged, PHNL, "PHNL")
-merged <- mergeDataFrames(merged, PLHH1, "PLHH1")
-merged <- mergeDataFrames(merged, SCSH1, "SCSH1")
-merged <- mergeDataFrames(merged, WNVH1, "WNVH1")
-merged <- mergeDataFrames(merged, WWFH1, "WWFH1")
-
-offset_solr <- dataOffset(6, "SOLR", merged)
-offset_solr_frac <- dataOffset(6, "SOLR_FRAC", merged)
-
+merged <- merged_temp[merged_temp[[wind_column]] >= low_wind_threshold & (merged_temp[[drct_column]] >= -90 & merged_temp[[drct_column]] < 0),]
+offset_solr <- offset_solr_temp[offset_solr_temp[[offset_wind_column]] >= low_wind_threshold & (offset_solr_temp[[offset_drct_column]] >= -90 & offset_solr_temp[[offset_drct_column]] < 0),]
+offset_solr_frac <- offset_solr_frac_temp[offset_solr_frac_temp[[offset_wind_column]] < low_wind_threshold & (offset_solr_frac_temp[[offset_drct_column]] >= -90 & offset_solr_frac_temp[[offset_drct_column]] < 0),]
 save(merged, offset_solr, offset_solr_frac, file="Data_Quadrant_3.RData")
 rm(merged)
 rm(offset_solr)
@@ -134,30 +58,9 @@ rm(offset_solr_frac)
 gc()
 
 writeLines("Quadrant 2")
-merged <- SCBH1[SCBH1$SKNT >= low_wind_threshold & ((SCBH1$DRCT >= -180 & SCBH1$DRCT < -90) | SCBH1$DRCT == 180),]
-merged <- mergeDataFrames(merged, AS839, "AS839")
-merged <- mergeDataFrames(merged, C0875, "C0875")
-merged <- mergeDataFrames(merged, D3665, "D3665")
-merged <- mergeDataFrames(merged, HOFH1, "HOFH1")
-merged <- mergeDataFrames(merged, KFWH1, "KFWH1")
-merged <- mergeDataFrames(merged, KTAH1, "KTAH1")
-merged <- mergeDataFrames(merged, MKHH1, "MKHH1")
-merged <- mergeDataFrames(merged, MKRH1, "MKRH1")
-merged <- mergeDataFrames(merged, MOKH1, "MOKH1")
-merged <- mergeDataFrames(merged, OFRH1, "OFRH1")
-merged <- mergeDataFrames(merged, OOUH1, "OOUH1")
-merged <- mergeDataFrames(merged, PHHI, "PHHI")
-merged <- mergeDataFrames(merged, PHJR, "PHJR")
-merged <- mergeDataFrames(merged, PHNG, "PHNG")
-merged <- mergeDataFrames(merged, PHNL, "PHNL")
-merged <- mergeDataFrames(merged, PLHH1, "PLHH1")
-merged <- mergeDataFrames(merged, SCSH1, "SCSH1")
-merged <- mergeDataFrames(merged, WNVH1, "WNVH1")
-merged <- mergeDataFrames(merged, WWFH1, "WWFH1")
-
-offset_solr <- dataOffset(6, "SOLR", merged)
-offset_solr_frac <- dataOffset(6, "SOLR_FRAC", merged)
-
+merged <- merged_temp[merged_temp[[wind_column]] >= low_wind_threshold & ((merged_temp[[drct_column]] >= -180 & merged_temp[[drct_column]] < -90) | merged_temp[[drct_column]] == 180),]
+offset_solr <- offset_solr_temp[offset_solr_temp[[offset_wind_column]] >= low_wind_threshold & ((offset_solr_temp[[offset_drct_column]] >= -180 & offset_solr_temp[[offset_drct_column]] < -90) | offset_solr_temp[[offset_drct_column]] == 180),]
+offset_solr_frac <- offset_solr_frac_temp[offset_solr_frac_temp[[offset_wind_column]] < low_wind_threshold & ((offset_solr_frac_temp[[offset_drct_column]] >= -180 & offset_solr_frac_temp[[offset_drct_column]] < -90) | offset_solr_frac_temp[[offset_drct_column]] == 180),]
 save(merged, offset_solr, offset_solr_frac, file="Data_Quadrant_2.RData")
 rm(merged)
 rm(offset_solr)

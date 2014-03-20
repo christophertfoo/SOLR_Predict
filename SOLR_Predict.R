@@ -349,12 +349,12 @@ offsetCol <- function(numrows, col, data) {
 # Parameters:
 #  -numrows = The number of rows previous to offset (i.e. the number of previous rows to associate with each
 #             row).
-#  -col     = The name of the column that will be associated with the previous data.
+#  -col     = The names of the columns that will be associated with the previous data.
 #  -data    = The data frame containing the data to be offset.
 #
 # Returns:
 #  -The offset data frame with the given column associated with the given number of previous rows.
-dataOffset <- function(numrows, col, data) {
+dataOffset <- function(numrows, cols, data) {
   ignoreList <- c("YEAR", "MON", "DAY", "HR", "MIN", "DT", "DT_NUM", "TIME")
   colNames <- names(data)
   
@@ -378,9 +378,11 @@ dataOffset <- function(numrows, col, data) {
   data[["TIME"]] <- offsetCol(numrows, "TIME", data)
   
   # Offset the specified column numrows times
-  data[[paste(col,"_",numrows,sep="")]] <- offsetCol(numrows, col, data)
-  if(col == "SOLR_FRAC") {
-    data[[paste("SOLR_MAX_",numrows,sep="")]] <- offsetCol(numrows, "SOLR_MAX", data)
+  for(col in cols) {
+    data[[paste(col,"_",numrows,sep="")]] <- offsetCol(numrows, col, data)
+    if(col == "SOLR_FRAC") {
+      data[[paste("SOLR_MAX_",numrows,sep="")]] <- offsetCol(numrows, "SOLR_MAX", data)
+    }
   }
   
   # Truncate and sort the data frame
@@ -750,7 +752,7 @@ createModel <- function(target, neighbors, offset, numFeatures, colName="SOLR", 
   
   solrColName <- paste("SOLR_", offset, sep="")
   
-  merged <- dataOffset(data=merged, col="SOLR", numrows=offset)
+  merged <- dataOffset(data=merged, cols=c("SOLR"), numrows=offset)
   
   bestNightDay <- testNightDayIntervals(data=merged, solrColName=solrColName, checkAnn=T)
   

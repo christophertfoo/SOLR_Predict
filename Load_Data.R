@@ -48,8 +48,8 @@ merged <- mergeDataFrames(merged, SCSH1, "SCSH1")
 merged <- mergeDataFrames(merged, WNVH1, "WNVH1")
 merged <- mergeDataFrames(merged, WWFH1, "WWFH1")
 
-offset_solr <- dataOffset(6, "SOLR", merged)
-offset_solr_frac <- dataOffset(6, "SOLR_FRAC", merged)
+offset_solr <- dataOffset(6, c("SOLR") merged)
+offset_solr_frac <- dataOffset(6, c("SOLR_FRAC"), merged)
 
 gc()
 
