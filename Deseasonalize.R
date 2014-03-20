@@ -48,6 +48,7 @@ if(!exists("deseasonalized") || !exists("deseasonalized_signal") || !exists("des
       }
     }   
     
+    average_signal <- list()
     current_time <- strptime("1 1 2014 0 0", "%m %d %Y %H %M")
     deseasonalized <- data.frame(merged)
     MON <- numeric(0)
@@ -55,6 +56,8 @@ if(!exists("deseasonalized") || !exists("deseasonalized_signal") || !exists("des
     HR <- numeric(0)
     MIN <- numeric(0)
     SOLR <- numeric(0)
+    
+    # Calculate Averages
     while(current_time$year == 114) {
       current_mon <- current_time$mon + 1
       current_day <- current_time$mday
@@ -71,15 +74,21 @@ if(!exists("deseasonalized") || !exists("deseasonalized_signal") || !exists("des
         writeLines(paste(current_time, " - Match", sep=""))
         avg_solr <- mean(deseasonalized[matches, "SOLR"])
         SOLR <- c(SOLR, avg_solr)
-        
-        for(i in matches) {
-          deseasonalized[["SOLR"]][i] <- deseasonalized[["SOLR"]][i] - avg_solr
-        }
+        average_signal[[as.character(current_time)]] <- avg_solr
       } else {
         writeLines(paste(current_time, " - No Match", sep=""))
       }     
       current_time <- as.POSIXlt(current_time + 3600)
     }
+    
+    # Subtract Average Signal
+    for(i in 1:num_rows) {
+      writeLines(paste(i,"/",num_rows, sep=""))
+      row <- deseasonalized[i,]
+      deseasonalized[["SOLR"]][i] <- deseasonalized[["SOLR"]][i] - average_signal[[as.character(strptime(paste(row$MON, row$DAY, 2014, row$HR, row$MIN, sep=" "), "%m %d %Y %H %M"))]]
+    }
+    
+    # Save
     deseasonalized_signal <- data.frame(MON, DAY, HR, MIN, SOLR)
     deseasonalized_offset <- dataOffset(6, c("SOLR"), deseasonalized)
     save(deseasonalized, deseasonalized_signal, deseasonalized_offset, file="Deseasonalized.RData")
