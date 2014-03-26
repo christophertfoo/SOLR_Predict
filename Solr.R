@@ -160,10 +160,16 @@ testContinuousModelSolrDeseasonalized <- function(model, data, colName, deseason
   errorMargins <- numeric(0)
   errorPercents <- numeric(0)
   actualSum <- 0
+  
+  fixedPredicted <- numeric(0)
+  fixedActual <- numeric(0)
+  
   for(i in 1:nrow(data)) {
     deseasonalized <- deseasonalized_signal[which(deseasonalized_signal$MON == data[["MON"]][i] & deseasonalized_signal$DAY == data[["DAY"]][i] & deseasonalized_signal$HR == data[["HR"]][i] & deseasonalized_signal$MIN == data[["MIN"]][i]), deseasonalized_colName]
     actual <- data[[colName]][i] + deseasonalized
     predicted <- predictedVector[i] + deseasonalized
+    fixedActual <- c(fixedActual, actual)
+    fixedPredicted <- c(fixedPredicted, predicted)
     if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
       errors <- errors + 1
       margin <- abs(actual - predicted)
@@ -187,7 +193,7 @@ testContinuousModelSolrDeseasonalized <- function(model, data, colName, deseason
     resultErrorSd <- sd(errorMargins)
   }
   
-  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, time=data[["DT"]],actual=data[[colName]], predicted=predictedVector))
+  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, time=data[["DT"]],actual=fixedActual, predicted=fixedPredicted))
 }
 
 # Tests a discrete / class-based model for predicting the solar irradiance.

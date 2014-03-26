@@ -16,7 +16,7 @@ if(!exists("deseasonalized") || !exists("deseasonalized_signal") || !exists("des
       }
     }
     
-    to_merge <- list()
+    to_merge <- new.env()
     
     # Collect indexes of the rows that will be a part of the deseasonalized signal
     num_rows <- nrow(merged)
@@ -48,7 +48,7 @@ if(!exists("deseasonalized") || !exists("deseasonalized_signal") || !exists("des
       }
     }   
     
-    average_signal <- list()
+    average_signal <- new.env()
     current_time <- strptime("1 1 2014 0 0", "%m %d %Y %H %M")
     deseasonalized <- data.frame(merged)
     MON <- numeric(0)

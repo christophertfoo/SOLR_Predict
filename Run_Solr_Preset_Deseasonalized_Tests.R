@@ -49,7 +49,20 @@ return_dir <- getwd()
 
 # Test Solr
 
-function_string <- paste("SOLR_6 ~ ", paste("SOLR_5", "SOLR_4", "RELH_5", "RELH_4", "TMPF_5", "TMPF_4", "SKNT_5", "SKNT_4", "DRCT_5", "DRCT_4", sep="+"), sep="")
+# 0 Neighbors
+# function_string <- paste("SOLR_6 ~ ", paste("SOLR_5", "SOLR_4", "RELH_5", "RELH_4", "TMPF_5", "TMPF_4", "SKNT_5", "SKNT_4", "DRCT_5", "DRCT_4", sep="+"), sep="")
+
+# Q1 - 1 Neighbor
+#function_string <- paste("SOLR_6 ~ ", paste("SOLR_5", "SOLR_4", "RELH_5", "RELH_4", "TMPF_5", "TMPF_4", "SKNT_5", "SKNT_4", "DRCT_5", "DRCT_4", "KTAH1_SOLR_5", "KTAH1_SOLR_4", "KTAH1_RELH_5", "KTAH1_RELH_4", "KTAH1_TMPF_5", "KTAH1_TMPF_4", "KTAH1_SKNT_5", "KTAH1_SKNT_4", "KTAH1_DRCT_5", "KTAH1_DRCT_4", sep="+"), sep="")
+
+# Q2 - 1 Neighbor
+# function_string <- paste("SOLR_6 ~ ", paste("SOLR_5", "SOLR_4", "RELH_5", "RELH_4", "TMPF_5", "TMPF_4", "SKNT_5", "SKNT_4", "DRCT_5", "DRCT_4", "PHHI_RELH_5", "PHHI_RELH_4", "PHHI_TMPF_5", "PHHI_TMPF_4", "PHHI_SKNT_5", "PHHI_SKNT_4", "PHHI_DRCT_5", "PHHI_DRCT_4", sep="+"), sep="")
+
+# Q3 - 1 Neighbor
+# function_string <- paste("SOLR_6 ~ ", paste("SOLR_5", "SOLR_4", "RELH_5", "RELH_4", "TMPF_5", "TMPF_4", "SKNT_5", "SKNT_4", "DRCT_5", "DRCT_4", "SCSH1_SOLR_5", "SCSH1_SOLR_4", "SCSH1_RELH_5", "SCSH1_RELH_4", "SCSH1_TMPF_5", "SCSH1_TMPF_4", "SCSH1_SKNT_5", "SCSH1_SKNT_4", "SCSH1_DRCT_5", "SCSH1_DRCT_4", sep="+"), sep="")
+
+# Q4 - 1 Neighbor
+function_string <- paste("SOLR_6 ~ ", paste("SOLR_5", "SOLR_4", "RELH_5", "RELH_4", "TMPF_5", "TMPF_4", "SKNT_5", "SKNT_4", "DRCT_5", "DRCT_4", "MKRH1_SOLR_5", "MKRH1_SOLR_4", "MKRH1_RELH_5", "MKRH1_RELH_4", "MKRH1_TMPF_5", "MKRH1_TMPF_4", "MKRH1_SKNT_5", "MKRH1_SKNT_4", "MKRH1_DRCT_5", "MKRH1_DRCT_4", sep="+"), sep="")
 
 SCBH1_Results_Solr <- list()
 
