@@ -196,6 +196,51 @@ testContinuousModelSolrDeseasonalized <- function(model, data, colName, deseason
   return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, time=data[["DT"]],actual=fixedActual, predicted=fixedPredicted))
 }
 
+testContinuousModelSolrDeseasonalizedNormalized <- function(model, data, colName, deseasonalized_signal, deseasonalized_colName, stats, verbose=F) {
+  predictedVector <- predict(model, data)
+  errors <- 0
+  errorMargins <- numeric(0)
+  errorPercents <- numeric(0)
+  actualSum <- 0
+  
+  fixedPredicted <- numeric(0)
+  fixedActual <- numeric(0)
+  
+  avg <- stats[[colName]][['avg']]
+  std_dev <- stats[[colName]][['std_dev']]
+  
+  for(i in 1:nrow(data)) {
+    deseasonalized <- deseasonalized_signal[which(deseasonalized_signal$MON == data[["MON"]][i] & deseasonalized_signal$DAY == data[["DAY"]][i] & deseasonalized_signal$HR == data[["HR"]][i] & deseasonalized_signal$MIN == data[["MIN"]][i]), deseasonalized_colName]
+    actual <- (data[[colName]][i] * std_dev) + avg + deseasonalized
+    predicted <- (predictedVector[i] * std_dev) + avg + deseasonalized
+    fixedActual <- c(fixedActual, actual)
+    fixedPredicted <- c(fixedPredicted, predicted)
+    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
+      errors <- errors + 1
+      margin <- abs(actual - predicted)
+      errorMargins <- c(errorMargins, margin)
+      if(actual != 0) {
+        errorPercents <- c(errorPercents, abs(margin / actual))
+      }
+    }
+  }
+  if(verbose) {
+    print(paste("Errors:", errors, "/", nrow(data)))
+  }
+  
+  if(errors == 0) {
+    resultErrorMargin <- 0
+    resultErrorPercent <- 0
+    resultErrorSd <- 0
+  } else {
+    resultErrorMargin <- (sum(errorMargins) / errors)
+    resultErrorPercent <- (sum(errorPercents) / errors) * 100
+    resultErrorSd <- sd(errorMargins)
+  }
+  
+  return(list(error_rate=(errors / nrow(data)), error_margin=resultErrorMargin, error_percent=resultErrorPercent, error_sd=resultErrorSd, time=data[["DT"]],actual=fixedActual, predicted=fixedPredicted))
+}
+
 # Tests a discrete / class-based model for predicting the solar irradiance.
 #
 # Parameters:

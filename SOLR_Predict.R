@@ -9,6 +9,144 @@ source('Correlation.R')
 source('Night_Day.R')
 source('Solr.R')
 
+removeVectorizedNa <- function(vectorized) {
+  to_remove <- numeric(0)
+  for(i in 1:nrow(vectorized)) {
+    has_na <- F
+    for(j in 1:ncol(vectorized)) {
+      if(is.na(vectorized[i,j])) {
+        has_na <- T
+        break
+      }
+    }
+    if(has_na) {
+      to_remove <- c(to_remove, i)
+    }
+  }
+  if(length(to_remove) > 0) {
+    return(vectorized[-to_remove,])
+  } else {
+    return(vectorized)
+  }
+}
+
+outputKmeansResult <- function(result, data, file_name, type="kmeans") {
+  if(type == "kmeans") {
+    partitions <- result$centers
+    clusters <- result$cluster
+  } else if(type == "pam") {
+    partitions <- result$medoids
+    clusters <- result$clustering
+  }
+  
+  sink(file_name)
+  row <- "Hour"
+  for(i in 1:nrow(partitions)) {
+    row <- paste(row, ",Partition ", i, " - (", length(which(clusters == i)), ")",",Min,Min Diff,Max,Max Diff", sep="")
+  }
+  writeLines(row)
+  for(i in 1:ncol(partitions)) {
+    row <- as.character(i - 1)
+    for(j in 1:nrow(partitions)) {
+      cluster <- data[which(clusters == j), i]
+      row <- paste(row,partitions[j, i],min(cluster), abs(partitions[j,i] - min(cluster)), max(cluster), abs(partitions[j,i] - max(cluster)), sep=",")
+    }
+    writeLines(row)
+  }
+
+  sink()
+}
+
+dataNormalize <- function(data) {
+  ignore_list <- c('MON', 'DAY', 'HR', 'MIN', 'YEAR', 'DT', 'DT_NUM', 'TIME', 'PENTAD', 'SINT', 'SOLR_MAX', 'SOLR_MAX_1', 'SOLR_MAX_2', 'SOLR_MAX_3', 'SOLR_MAX_4', 'SOLR_MAX_5', 'SOLR_MAX_6')
+  
+  features <- setdiff(names(data), ignore_list)
+  
+  num_rows <- nrow(data)
+  
+  normalize <- function(x, avg, std_dev) {
+    return((x - avg) / std_dev)
+  }
+  
+  stats <- list()
+  
+  for(f in features) {
+    avg <- mean(data[[f]])
+    std_dev <- sd(data[[f]])
+    
+    stats[[f]][['avg']] <- avg
+    stats[[f]][['std_dev']] <- std_dev
+    
+    writeLines(f)
+    data[[f]] <- as.numeric(lapply(data[[f]], normalize, avg=avg, std_dev=std_dev))
+    gc()
+  }
+  return(list('data' = data, 'stats' = stats))
+}
+
+writeLrCoefficients <- function(name, results, pentad, hour) {
+  if(!is.null(results[[as.character(pentad)]][[as.character(hour)]])) {
+    years <- names(results[[as.character(pentad)]][[as.character(hour)]])
+    sink(name)
+    for(year in years) {
+      coefficients <- results[[as.character(pentad)]][[as.character(hour)]][[as.character(year)]]$model$coefficients
+      sorted <- sort(abs(coefficients)[2:length(coefficients)], T)
+      
+      writeLines(year)
+      writeLines("Variable,Coefficient")
+      v_names <- names(sorted)
+      for(i in 1:length(sorted)) {
+        writeLines(paste(v_names[i], sorted[i], sep=","))
+      }
+      writeLines("")      
+    }
+    sink()
+  }
+}
+
+writeCubistCoefficients <- function(name, results, pentad, hour) {
+  if(!is.null(results[[as.character(pentad)]][[as.character(hour)]])) {
+    years <- names(results[[as.character(pentad)]][[as.character(hour)]])
+    sink(name)
+    for(year in years) {
+      splits <- results[[as.character(pentad)]][[as.character(hour)]][[as.character(year)]]$model$splits
+      coefficients <- results[[as.character(pentad)]][[as.character(hour)]][[as.character(year)]]$model$coefficients
+      
+      writeLines(year)
+      
+      num_splits <- nrow(splits)
+      if(is.null(num_splits)) {
+        num_splits <- 1
+      }
+      
+      valid_names <- setdiff(names(coefficients), c('(Intercept)', 'rule', 'committee'))
+      
+      for(i in 1:num_splits) {
+        if(is.null(splits)) {
+          writeLines("Split: None")
+          rule <- 1
+        } else {
+          writeLines(paste("Split: ", splits[i,'variable'], " ", splits[i, 'dir'], " ", splits[i, 'value'], sep=""))
+          rule <- splits[i, 'rule']
+        }
+                
+        split_coef <- coefficients[coefficients$rule == rule, valid_names]
+        sorted <- sort(abs(split_coef)[1:length(split_coef)], T)
+        writeLines("Variable,Coefficient")
+        v_names <- names(sorted)
+        for(i in 1:length(v_names)) {
+          writeLines(paste(v_names[i], sorted[1, v_names[i]], sep=","))
+        }
+        writeLines("")
+      }
+      
+
+      writeLines("")      
+    }
+    sink()
+  }
+}
+
 writeRawTestResults <- function(name, results, pentad, hour) {
   if(!is.null(results[[as.character(pentad)]][[as.character(hour)]])) {
     sink(name)
@@ -30,7 +168,7 @@ writeRawTestResults <- function(name, results, pentad, hour) {
 
 writeTestResults <- function(name, results, pentad) {
   sink(name)
-  row <- "Hour, Error Margin, Error Margin Std Dev, Error Percentage"
+  row <- "Hour, Actual, Predicted, Error Margin, Error Margin Std Dev, Error Percentage"
   writeLines(row)
   
   for(i in 0:23) {
@@ -39,6 +177,9 @@ writeTestResults <- function(name, results, pentad) {
     } else {
       years <- names(results[[as.character(pentad)]][[as.character(i)]])   
       num_years <- length(years)
+      actual <- 0
+      predicted <- 0
+      obs_count <- 0
       em <- 0
       stddev <- 0
       ep <- 0
@@ -47,18 +188,23 @@ writeTestResults <- function(name, results, pentad) {
         result <- results[[as.character(pentad)]][[as.character(i)]][[years[j]]][["result"]]
         if(!is.null(result)) {
           count <- count + 1
+          obs_count <- length(result$actual)
+          actual <- sum(result$actual)
+          predicted <- sum(result$predicted)
           em <- em + result$error_margin
           ep <- ep + result$error_percent
           stddev <- stddev + result$error_sd
         }
       }
       if(count > 0) {
+        actual <- actual / obs_count
+        predicted <- predicted / obs_count
         em <- em / count
         ep <- ep / count
         stddev <- stddev / count
-        writeLines(paste(i, em, stddev, ep, sep=","))
+        writeLines(paste(i, actual, predicted, em, stddev, ep, sep=","))
       } else {
-        writeLines(paste(i, ",,,"))
+        writeLines(paste(i, ",,,,,"))
       }
     }
   }
@@ -355,7 +501,7 @@ offsetCol <- function(numrows, col, data) {
 # Returns:
 #  -The offset data frame with the given column associated with the given number of previous rows.
 dataOffset <- function(numrows, cols, data) {
-  ignoreList <- c("YEAR", "MON", "DAY", "HR", "MIN", "DT", "DT_NUM", "TIME")
+  ignoreList <- c("YEAR", "MON", "DAY", "HR", "MIN", "DT", "DT_NUM", "TIME", "PENTAD")
   colNames <- names(data)
   
   # Offset other columns numrows - 1 times
