@@ -9,11 +9,11 @@ source('Correlation.R')
 source('Night_Day.R')
 source('Solr.R')
 
-removeVectorizedNa <- function(vectorized) {
+removeVectorizedNa <- function(vectorized, columns) {
   to_remove <- numeric(0)
   for(i in 1:nrow(vectorized)) {
     has_na <- F
-    for(j in 1:ncol(vectorized)) {
+    for(j in which(names(vectorized) %in% columns)) {
       if(is.na(vectorized[i,j])) {
         has_na <- T
         break
@@ -30,7 +30,60 @@ removeVectorizedNa <- function(vectorized) {
   }
 }
 
-outputKmeansResult <- function(result, data, file_name, type="kmeans") {
+outputCoefKmeansResult <- function(result, data, file_name, type="kmeans", low_percent=0.25, high_percent=0.75, hour_offset=5) {
+  if(type == "kmeans") {
+    centroids <- result$centers
+    clusters <- result$cluster
+  } else if(type == "pam") {
+    centroids <- result$medoids
+    clusters <- result$clustering
+  }
+  
+  partitions <- numeric(0)
+  temp <- dwt(rep(0,16), filter='haar')
+  for(i in 1:nrow(centroids)) {
+    temp@V$V4[1,1] <- centroids[i,1]
+    temp@W$W4[1,1] <- centroids[i,2]
+    temp@W$W3[1,1] <- centroids[i,3]
+    temp@W$W3[2,1] <- centroids[i,4]
+    temp@W$W2[1,1] <- centroids[i,5]
+    temp@W$W2[2,1] <- centroids[i,6]
+    temp@W$W2[3,1] <- centroids[i,7]
+    temp@W$W2[4,1] <- centroids[i,8]
+    temp@W$W1[1,1] <- centroids[i,9]
+    temp@W$W1[2,1] <- centroids[i,10] 
+    temp@W$W1[3,1] <- centroids[i,11]
+    temp@W$W1[4,1] <- centroids[i,12] 
+    temp@W$W1[5,1] <- centroids[i,13] 
+    temp@W$W1[6,1] <- centroids[i,14]
+    temp@W$W1[7,1] <- centroids[i,15]
+    temp@W$W1[8,1] <- centroids[i,16] 
+    
+    centroid_signal <- idwt(temp)
+    partitions <- rbind(partitions, centroid_signal)
+  }
+  
+  sink(file_name)
+  row <- "Hour"
+  for(i in 1:nrow(partitions)) {
+    row <- paste(row, ",Partition ", i, " - (", length(which(clusters == i)), "),", low_percent * 100, " Percentile,", low_percent * 100, " Diff,", high_percent * 100," Percentile,", high_percent * 100," Diff", sep="")
+  }
+  writeLines(row)
+  for(i in 1:ncol(partitions)) {
+    row <- as.character(i - 1 + hour_offset) 
+    for(j in 1:nrow(partitions)) {
+      cluster <- data[which(clusters == j), i]
+      low_percentile <- quantile(cluster, low_percent)
+      high_percentile <- quantile(cluster, high_percent)
+      row <- paste(row,partitions[j, i], low_percentile, abs(partitions[j,i] - low_percentile), high_percentile, abs(partitions[j,i] - high_percentile), sep=",")
+    }
+    writeLines(row)
+  }
+  
+  sink()
+}
+
+outputKmeansResult <- function(result, data, file_name, type="kmeans", low_percent=0.25, high_percent=0.75) {
   if(type == "kmeans") {
     partitions <- result$centers
     clusters <- result$cluster
@@ -42,14 +95,16 @@ outputKmeansResult <- function(result, data, file_name, type="kmeans") {
   sink(file_name)
   row <- "Hour"
   for(i in 1:nrow(partitions)) {
-    row <- paste(row, ",Partition ", i, " - (", length(which(clusters == i)), ")",",Min,Min Diff,Max,Max Diff", sep="")
+    row <- paste(row, ",Partition ", i, " - (", length(which(clusters == i)), "),", low_percent * 100, " Percentile,", low_percent * 100, " Diff,", high_percent * 100," Percentile,", high_percent * 100," Diff", sep="")
   }
   writeLines(row)
   for(i in 1:ncol(partitions)) {
     row <- as.character(i - 1)
     for(j in 1:nrow(partitions)) {
       cluster <- data[which(clusters == j), i]
-      row <- paste(row,partitions[j, i],min(cluster), abs(partitions[j,i] - min(cluster)), max(cluster), abs(partitions[j,i] - max(cluster)), sep=",")
+      low_percentile <- quantile(cluster, low_percent)
+      high_percentile <- quantile(cluster, high_percent)
+      row <- paste(row,partitions[j, i], low_percentile, abs(partitions[j,i] - low_percentile), high_percentile, abs(partitions[j,i] - high_percentile), sep=",")
     }
     writeLines(row)
   }
