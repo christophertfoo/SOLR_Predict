@@ -13,13 +13,14 @@ if(!exists("vectorized")) {
 min_clusters <- 4
 max_clusters <- 10
 
-to_save <- c("vectorized", "solr")
+to_save <- c("vectorized", "solr_data")
 
 solr_cols <- character()
 for(i in 0:23) {
   solr_cols <- c(solr_cols, paste("SOLR", i, sep="_"))
 }
-solr <- removeVectorizedNa(vectorized[, solr_cols])
+solr_data <- removeVectorizedNa(vectorized, c("day", solr_cols))
+solr <- solr_data[,solr_cols]
 
 for(i in min_clusters:max_clusters) {
   kmeans_name <- paste("kmeans",i,sep="_")
