@@ -1,5 +1,11 @@
+require('prob')
+
+source('ClusterHelpers.R')
+
+load("Data.RData")
 load("Clusters.RData")
 load("Haar.RData")
+
 
 getClusterings <- function(data, clustering, type="kmeans") {
   if(type == "kmeans") {
@@ -56,16 +62,46 @@ getProb <- function(matched, target_col, given_col) {
   return(probabilities)
 }
 
-outputProb <- function(probabilities, col_name, file_name) {
-  row <- paste(paste(col_name, ' -> current cluster', sep=""), "probability",sep=",")
-  sink(file_name)
-  writeLines(row)
-  for(given_val in sort(names(probabilities))) {
-    for(target_val in sort(names(probabilities[[given_val]]))) {
-      row <- paste(paste(given_val, target_val, sep=" -> "), probabilities[[given_val]][[target_val]],sep=",")
-      writeLines(row)
+outputProbHelper <- function(probabilities, col_names, label=NULL, given=NULL) {
+  if(is.null(col_names)) {
+    for(val in sort(unique(probabilities[['cluster']]))) {
+      prob <- Prob(probabilities, cluster == val, given)
+      writeLines(paste(paste(label, val, sep=" -> "), prob,sep=","))
     }
-    writeLines("")
+  } else {
+    col <- col_names[1]
+    for(val in sort(unique(probabilities[[col]]))) {
+      if(is.null(label)) {
+        temp_label <- val
+      } else {
+        temp_label <- paste(label, val, sep=" -> ")
+      }
+      
+      if(is.null(given)) {
+        temp_given <- probabilities
+      } else {
+        temp_given <- given
+      }
+      
+      if(length(col_names) == 1) {
+        temp_cols <- NULL  
+      } else {
+        temp_cols <- col_names[2:length(col_names)]
+      }
+      outputProbHelper(probabilities, temp_cols, temp_label, subset(temp_given, get(col) == val))
+    }
   }
+}
+
+outputProb <- function(matched, col_names, file_name) {
+  good_rows <- which(!is.na(matched$cluster))
+  for(col in col_names) {
+    good_rows <- get('intersect','package:base')(good_rows, which(!is.na(matched[[col]])))
+  }
+  probabilities <- empirical(matched[good_rows, c('cluster', col_names)])
+  sink(file_name)
+  row <- paste(paste(paste(col_names, collapse=" -> "), "current cluster", sep=' -> '), "probability", sep=",")
+  writeLines(row)
+  outputProbHelper(probabilities, col_names)
   sink()
 }

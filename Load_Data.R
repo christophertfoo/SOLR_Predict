@@ -3,7 +3,7 @@ source('SOLR_Predict.R')
 currentWd <- getwd()
 
 # Load Data
-setwd("Data")
+setwd("Data-Fill")
 
 Buoy51201 <- filterColumns(loadCsv("51201.csv"))
 AS839 <- filterColumns(loadCsv("AS839.csv"))
@@ -27,7 +27,7 @@ SCSH1 <- filterColumns(loadCsv("SCSH1.csv"))
 WNVH1 <- filterColumns(loadCsv("WNVH1.csv"))
 WWFH1 <- filterColumns(loadCsv("WWFH1.csv"))
 
-merged <- mergeDataFrames(WNVH1, Buoy51201, "51201")
+merged <- mergeDataFrames(PLHH1, Buoy51201, "51201")
 merged <- mergeDataFrames(merged, AS839, "AS839")
 merged <- mergeDataFrames(merged, C0875, "C0875")
 merged <- mergeDataFrames(merged, D3665, "D3665")
@@ -39,6 +39,7 @@ merged <- mergeDataFrames(merged, MKRH1, "MKRH1")
 merged <- mergeDataFrames(merged, MOKH1, "MOKH1")
 merged <- mergeDataFrames(merged, KFWH1, "KFWH1")
 merged <- mergeDataFrames(merged, OOUH1, "OOUH1")
+# merged <- mergeDataFrames(merged, PLHH1, "PLHH1")
 merged <- mergeDataFrames(merged, PHHI, "PHHI")
 merged <- mergeDataFrames(merged, PHJR, "PHJR")
 merged <- mergeDataFrames(merged, PHNG, "PHNG")
@@ -47,12 +48,14 @@ merged <- mergeDataFrames(merged, SCSH1, "SCSH1")
 merged <- mergeDataFrames(merged, SCBH1, "SCBH1")
 merged <- mergeDataFrames(merged, OFRH1, "OFRH1")
 merged <- mergeDataFrames(merged, WWFH1, "WWFH1")
+merged <- mergeDataFrames(merged, WNVH1, "WNVH1")
 
-offset_solr <- dataOffset(6, c("SOLR"), merged)
-offset_solr_frac <- dataOffset(6, c("SOLR_FRAC"), merged)
+
+offset_solr <- dataOffset(30, c("SOLR"), merged, 6)
+# offset_solr_frac <- dataOffset(6, c("SOLR_FRAC"), merged)
 
 gc()
 
 setwd(currentWd)
 
-save.image("Data.RData")
+save(merged, offset_solr, file = "Data-PLHH1-30.RData")

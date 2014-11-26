@@ -89,10 +89,16 @@ for(test_year in 2010:2013) {
   training <- deseasonalized_offset[deseasonalized_offset$YEAR != test_year,]
   for(pentad in 1:num_groups) {
     start <- 1 + (pentad - 1) * num_pentads
+    end <- (start + num_pentads - 1)
     for(hour in 0:23) {
       writeLines(paste(" Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
-      training_data <- training[training$PENTAD >= (start) & training$PENTAD <= (start + num_pentads - 1) & training$HR == hour,]
-      test_data <- test[test$PENTAD >= (start) & test$PENTAD <= (start + num_pentads - 1) & test$HR == hour,]
+      if(end > 73) {
+        training_data <- training[(training$PENTAD >= (start) | training$PENTAD <= end %% 73) & training$HR == hour,]
+        test_data <- test[(test$PENTAD >= (start) | test$PENTAD <= end %% 73) & test$HR == hour,]
+      } else {
+        training_data <- training[training$PENTAD >= (start) & training$PENTAD <= end & training$HR == hour,]
+        test_data <- test[test$PENTAD >= (start) & test$PENTAD <= end & test$HR == hour,]
+      }
       if(nrow(test_data) > 0 && nrow(training_data) > 0) {        
         if(is.null(Results[[as.character(pentad)]][[as.character(hour)]])) {
           Results[[as.character(pentad)]][[as.character(hour)]] <- list()          

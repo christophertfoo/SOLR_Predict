@@ -13,7 +13,7 @@ source('SOLR_Predict.R')
 
 writeLines("Calculating Solr Correlations")
 
-num_pentads <- 12
+num_pentads <- 73
 num_groups <- ceiling(73 / num_pentads)
 
 P_Solr <- list()
@@ -23,10 +23,15 @@ S_Solr <- list()
 for(pentad in 1:num_groups) {
   
   start <- 1 + (pentad - 1) * num_pentads  
+  end <- (start + num_pentads - 1)
   
   for(hour in 0:23) {
     writeLines(paste("Pentad:", pentad, "- Hour:", hour))
-    data <- offset_solr[offset_solr$PENTAD >= start & offset_solr$PENTAD <= (start + num_pentads - 1) & offset_solr$HR == hour,]
+    if(end > 73) {
+      data <- offset_solr[which((offset_solr$PENTAD >= start | offset_solr$PENTAD <= end %% 73) & offset_solr$HR == hour),]
+    } else {
+      data <- offset_solr[which(offset_solr$PENTAD >= start & offset_solr$PENTAD <= end & offset_solr$HR == hour),]
+    }
     writeLines(paste("# valid rows:", as.character(nrow(data[data$SOLR_6 > 0,]))))
     if(nrow(data[data$SOLR_6 > 0,]) > 0) {    
       writeLines("  Pearson")

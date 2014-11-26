@@ -65,11 +65,17 @@ for(test_year in 2013:2013) {
 #   training <- deseasonalized_offset[deseasonalized_offset$YEAR != test_year,]
   for(pentad in 1:num_groups) {
     start <- 1 + (pentad - 1) * num_pentads
+    end <- (start + num_pentads - 1)
     for(hour in 0:23) {
       #       writeLines(paste("Num Merged - ", num_pentads, " Num Past - ", num_past," Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
       writeLines(paste("Num Merged - ", num_pentads, " Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
-      training_data <- training[training$PENTAD >= (start) & training$PENTAD <= (start + num_pentads - 1) & training$HR == hour,]
-      test_data <- test[test$PENTAD >= (start) & test$PENTAD <= (start + num_pentads - 1) & test$HR == hour,]
+      if(end > 73) {
+        training_data <- training[(training$PENTAD >= (start) | training$PENTAD <= end %% 73) & training$HR == hour,]
+        test_data <- test[(test$PENTAD >= (start) | test$PENTAD <= end %% 73) & test$HR == hour,]
+      } else {
+        training_data <- training[training$PENTAD >= (start) & training$PENTAD <= end & training$HR == hour,]
+        test_data <- test[test$PENTAD >= (start) & test$PENTAD <= end & test$HR == hour,]
+      }
       if(nrow(training_data) > 0 && nrow(test_data) > 0 && nrow(training[training$SOLR_6 > 0,]) > 0) {
         if(is.null(Results[[as.character(pentad)]][[as.character(hour)]])) {
           Results[[as.character(pentad)]][[as.character(hour)]] <- list()          

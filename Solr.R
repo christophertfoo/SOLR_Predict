@@ -92,7 +92,7 @@ testContinuousModelSolr <- function(model, data, colName, verbose=F) {
   for(i in 1:nrow(data)) {
     actual <- data[[colName]][i]
     predicted <- predictedVector[i]
-    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
+    if(!is.na(actual) && !is.na(predicted)) {
       errors <- errors + 1
       margin <- abs(actual - predicted)
       errorMargins <- c(errorMargins, margin)
@@ -128,7 +128,7 @@ testContinuousModelSolrFrac <- function(model, data, colName, maxColName, verbos
     max <- data[[maxColName]][i]
     actual <- data[[colName]][i] * max
     predicted <- predictedVector[i] * max
-    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
+    if(!is.na(actual) && !is.na(predicted)) {
       errors <- errors + 1
       margin <- abs(actual - predicted)
       errorMargins <- c(errorMargins, margin)
@@ -170,7 +170,7 @@ testContinuousModelSolrDeseasonalized <- function(model, data, colName, deseason
     predicted <- predictedVector[i] + deseasonalized
     fixedActual <- c(fixedActual, actual)
     fixedPredicted <- c(fixedPredicted, predicted)
-    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
+    if(!is.na(actual) && !is.na(predicted)) {
       errors <- errors + 1
       margin <- abs(actual - predicted)
       errorMargins <- c(errorMargins, margin)
@@ -215,7 +215,7 @@ testContinuousModelSolrDeseasonalizedNormalized <- function(model, data, colName
     predicted <- (predictedVector[i] * std_dev) + avg + deseasonalized
     fixedActual <- c(fixedActual, actual)
     fixedPredicted <- c(fixedPredicted, predicted)
-    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
+    if(!is.na(actual) && !is.na(predicted)) {
       errors <- errors + 1
       margin <- abs(actual - predicted)
       errorMargins <- c(errorMargins, margin)
@@ -290,7 +290,7 @@ testClassModelSolrHelper <- function(model, predictedClasses, data, colName, ver
   for(i in 1:nrow(data)) {
     actual <- averageFactor(data[[colName]][i])
     predicted <- averageFactor(predictedClasses[i])
-    if(!is.na(actual) && !is.na(predicted) && actual != predicted) {
+    if(!is.na(actual) && !is.na(predicted)) {
       errors <- errors + 1
       margin <- abs(actual - predicted)
       errorMargins <- c(errorMargins, margin)

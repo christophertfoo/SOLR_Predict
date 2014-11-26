@@ -45,10 +45,17 @@ for(num_pentads in merge_groups) {
       training <- offset_solr_frac[offset_solr_frac$YEAR != test_year,]
       for(pentad in 1:num_groups) {
         start <- 1 + (pentad - 1) * num_pentads
+        end <- (start + num_pentads - 1)
         for(hour in 0:23) {
           writeLines(paste("Num Merged - ", num_pentads, " Num Past - ", num_past," Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
-          training_data <- training[training$PENTAD >= (start) & training$PENTAD <= (start + num_pentads - 1) & training$HR == hour,]
-          test_data <- test[test$PENTAD >= (start) & test$PENTAD <= (start + num_pentads - 1) & test$HR == hour,]
+          if(end > 73) {
+            training_data <- training[(training$PENTAD >= (start) | training$PENTAD <= end %% 73) & training$HR == hour,]
+            test_data <- test[(test$PENTAD >= (start) | test$PENTAD <= end %% 73) & test$HR == hour,]
+          } else {
+            training_data <- training[training$PENTAD >= (start) & training$PENTAD <= end & training$HR == hour,]
+            test_data <- test[test$PENTAD >= (start) & test$PENTAD <= end & test$HR == hour,]
+          }
+
           if(nrow(training[training$SOLR_Frac_6 > 0,]) > 0) {
             if(is.null(SCBH1_Results_Frac[[as.character(pentad)]][[as.character(hour)]])) {
               SCBH1_Results_Frac[[as.character(pentad)]][[as.character(hour)]] <- list()          

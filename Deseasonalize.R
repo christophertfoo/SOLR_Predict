@@ -90,7 +90,7 @@ if(!exists("deseasonalized") || !exists("deseasonalized_signal") || !exists("des
     
     # Save
     deseasonalized_signal <- data.frame(MON, DAY, HR, MIN, SOLR)
-    deseasonalized_offset <- dataOffset(6, c("SOLR"), deseasonalized)
+    deseasonalized_offset <- dataOffset(30, c("SOLR"), deseasonalized, 6) #dataOffset(101, c("SOLR"), deseasonalized, 5) 
     save(deseasonalized, deseasonalized_signal, deseasonalized_offset, file="Deseasonalized.RData")
   }
 }

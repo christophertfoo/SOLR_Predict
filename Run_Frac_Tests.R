@@ -34,9 +34,15 @@ for(num_features in feature_counts) {
     training <- offset_solr_frac[offset_solr_frac$YEAR != test_year,]
     for(pentad in 1:num_groups) {
       start <- 1 + (pentad - 1) * num_pentads
+      end <- (start + num_pentads - 1)
       for(hour in 0:23) {
-        training_data <- training[training$PENTAD >= (start) & training$PENTAD <= (start + num_pentads - 1) & training$HR == hour,]
-        test_data <- test[test$PENTAD >= (start) & test$PENTAD <= (start + num_pentads - 1) & test$HR == hour,]
+        if(end > 73) {
+          training_data <- training[(training$PENTAD >= (start) | training$PENTAD <= end %% 73) & training$HR == hour,]
+          test_data <- test[(test$PENTAD >= (start) | test$PENTAD <= end %% 73) & test$HR == hour,]
+        } else {
+          training_data <- training[training$PENTAD >= (start) & training$PENTAD <= end & training$HR == hour,]
+          test_data <- test[test$PENTAD >= (start) & test$PENTAD <= end & test$HR == hour,]
+        }
         writeLines(paste("# of Features - ", num_features," Test Data Year - ", test_year, ", Pentad - ", pentad, ", Hour - ", hour, sep=""))
         if(!is.null(P_Frac[[as.character(pentad)]][[as.character(hour)]])) {
           writeLines("  P")

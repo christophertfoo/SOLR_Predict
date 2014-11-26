@@ -77,7 +77,7 @@ correlate <- function(col, data, selectedMethod="pearson", debug=F) {
 }
 
 correlateNoMT <- function(col, data, selectedMethod="pearson", debug=F) {
-  ignore <- c("MON", "YEAR", "DAY", "HR", "MIN", "DT", "DT_NUM")
+  ignore <- c("MON", "YEAR", "DAY", "HR", "MIN", "DT", "DT_NUM", "SOLR_FRAC", "SOLR_MAX", "RELH_CALCULATED", "VOLT", "TIME", "SINT") #"_5", "_4")
   nonNumbers <- c()
   colNames <- names(data)
   for(i in 1:length(colNames)) {
@@ -95,7 +95,18 @@ correlateNoMT <- function(col, data, selectedMethod="pearson", debug=F) {
     }
   }
   
-  validCol <- Filter(function(i){return(!(i %in% nonNumbers || i %in% ignore || i == col))}, names(data))
+  validCol <- Filter(function(i){
+    valid <- !(i %in% nonNumbers || i %in% ignore || i == col)
+    if(valid) {
+      for(bad in ignore) {
+        if(length(grep(bad, i)) > 0) {
+          valid <- F
+          break
+        }
+      }
+    }
+    return(valid)
+    }, names(data))
   numCols <- length(validCol)
   colNames <- character(0)
   correlations <- numeric(0)

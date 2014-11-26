@@ -202,22 +202,41 @@ writeCubistCoefficients <- function(name, results, pentad, hour) {
   }
 }
 
-writeRawTestResults <- function(name, results, pentad, hour) {
-  if(!is.null(results[[as.character(pentad)]][[as.character(hour)]])) {
-    sink(name)
-    row <- "Time,Actual,Predicted,Error,Error Percent"
-    writeLines(row)
-    years <- names(results[[as.character(pentad)]][[as.character(hour)]])   
-    num_years <- length(years)
-    for(j in 1:num_years) {
-      result <- results[[as.character(pentad)]][[as.character(hour)]][[years[j]]][["result"]]
-      num_predictions <- length(result$predicted)
-      for(k in 1:num_predictions) {
-        error <- abs(result$predicted[k] - result$actual[k])
-        writeLines(paste(result$time[k], result$actual[k], result$predicted[k], error, abs(error / result$actual[k]), sep=","))
+writeRawTestResults <- function(name, results, pentad, hour=NULL) {
+  if(is.null(hour)) {
+    if(!is.null(results[[as.character(pentad)]])) {
+      sink(name)
+      row <- "Time,Actual,Predicted,Error,Error Percent"
+      writeLines(row)
+      years <- names(results[[as.character(pentad)]])   
+      num_years <- length(years)
+      for(j in 1:num_years) {
+        result <- results[[as.character(pentad)]][[years[j]]][["result"]]
+        num_predictions <- length(result$predicted)
+        for(k in 1:num_predictions) {
+          error <- abs(result$predicted[k] - result$actual[k])
+          writeLines(paste(result$time[k], result$actual[k], result$predicted[k], error, abs(error / result$actual[k]), sep=","))
+        }
       }
+      sink()
     }
-    sink()
+  } else {
+    if(!is.null(results[[as.character(pentad)]][[as.character(hour)]])) {
+      sink(name)
+      row <- "Time,Actual,Predicted,Error,Error Percent"
+      writeLines(row)
+      years <- names(results[[as.character(pentad)]][[as.character(hour)]])   
+      num_years <- length(years)
+      for(j in 1:num_years) {
+        result <- results[[as.character(pentad)]][[as.character(hour)]][[years[j]]][["result"]]
+        num_predictions <- length(result$predicted)
+        for(k in 1:num_predictions) {
+          error <- abs(result$predicted[k] - result$actual[k])
+          writeLines(paste(result$time[k], result$actual[k], result$predicted[k], error, abs(error / result$actual[k]), sep=","))
+        }
+      }
+      sink()
+    }
   }
 }
 
@@ -555,12 +574,15 @@ offsetCol <- function(numrows, col, data) {
 #
 # Returns:
 #  -The offset data frame with the given column associated with the given number of previous rows.
-dataOffset <- function(numrows, cols, data) {
+dataOffset <- function(numrows, cols, data, end = NULL) {
   ignoreList <- c("YEAR", "MON", "DAY", "HR", "MIN", "DT", "DT_NUM", "TIME", "PENTAD")
   colNames <- names(data)
   
   # Offset other columns numrows - 1 times
-  for(i in 1:(numrows - 1)) {
+  if(is.null(end) || end > numrows - 1) {
+    end <- numrows - 1
+  }
+  for(i in 1:end) {
     for(j in 1:length(colNames)) {
       if(!(colNames[j] %in% ignoreList)){
         data[[paste(colNames[j],"_",i,sep="")]] <- offsetCol(i, colNames[j], data)      
